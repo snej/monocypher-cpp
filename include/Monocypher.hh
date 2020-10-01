@@ -34,15 +34,34 @@
 #pragma once
 #include "monocypher.h"
 #include "monocypher-ed25519.h"
+
 #include <array>
 #include <cassert>
 #include <cstdlib>
+#include <cstring>
 #include <memory>  // for std::make_unique
 #include <utility> // for std::pair
 
+// On Apple platforms, arc4random_buf is declared in <cstdlib>, above.
+// On Linux, in <bsd/stdlib.h>. On Windows, in <arc4random.h> (apparently)
+#ifndef __APPLE__
+#  if defined __has_include
+#    if __has_include (<arc4random.h>)
+#      include <arc4random.h>
+#    elif __has_include (<bsd/stdlib.h>)
+#      include <bsd/stdlib.h>
+#    else
+#      error "I don't know where to find arc4random_buf()"
+#    endif
+#  else
+#    error "I don't know where to find arc4random_buf()"
+#  endif
+#endif
+
+
 namespace monocypher {
 
-#pragma mark - Utilities:
+//======== Utilities:
 
 
     static inline const uint8_t* u8(const void *p)  {return reinterpret_cast<const uint8_t*>(p);}
@@ -53,7 +72,7 @@ namespace monocypher {
     template <size_t Size>
     class byte_array: public std::array<uint8_t, Size> {
     public:
-        void randomize()                            {::arc4random_buf(this->data(), Size);} //TODO: Cross-platform
+        void randomize()                            {::arc4random_buf(this->data(), Size);}
         void wipe()                                 {::crypto_wipe(this->data(), Size);}
         operator uint8_t*()                         {return this->data();}
         operator const uint8_t*() const             {return this->data();}
@@ -89,7 +108,7 @@ namespace monocypher {
     // TODO: Make this work for Size other than 16, 32, 64.
 
 
-#pragma mark - General purpose hash (Blake2b)
+//======== General purpose hash (Blake2b)
 
 
     /// Cryptographic hash class, templated by algorithm.
@@ -179,7 +198,7 @@ namespace monocypher {
     using blake2b32 = hash<Blake2b,32>;
 
 
-#pragma mark - Password Key Derivation
+//======== Password Key Derivation
 
 
     /// Argon2i is a resource intensive password key derivation scheme.
@@ -220,7 +239,7 @@ namespace monocypher {
     };
 
 
-#pragma mark - Key Exchange
+//======== Key Exchange
 
 
     /// Performs a Diffie-Hellman key exchange with another party, using X25519 and HChaCha20.
@@ -269,7 +288,7 @@ namespace monocypher {
     };
 
 
-#pragma mark - Authenticated Encryption
+//======== Authenticated Encryption
 
 
     namespace session {
@@ -331,7 +350,7 @@ namespace monocypher {
     } // end 'session'
 
 
-#pragma mark - Signatures
+//======== Signatures
 
 
     template <class Algorithm> struct signing_key;   // (forward reference)
@@ -367,7 +386,7 @@ namespace monocypher {
     template <class Algorithm>
     struct signing_key : public secret_byte_array<32> {
         using public_key_t = public_key<Algorithm>;
-        using signature = signature<Algorithm>;
+        using signature_t = signature<Algorithm>;
 
         /// Constructs an instance given the key data (32 bytes).
         explicit signing_key(const void *key_bytes) {
@@ -391,17 +410,17 @@ namespace monocypher {
         }
 
         /// Signs a message. (Passing in the public key speeds up the computation.)
-        signature sign(const void *message, size_t message_size,
+        signature_t sign(const void *message, size_t message_size,
                        const public_key_t &pubKey) const {
-            signature sig;
+            signature_t sig;
             Algorithm::sign_fn(sig, this->data(), pubKey, u8(message), message_size);
             return sig;
         }
 
         /// Signs a message.
         /// (This is a bit slower than the version that takes the public key, because it has to recompute it.)
-        signature sign(const void *message, size_t message_size) const {
-            signature sig;
+        signature_t sign(const void *message, size_t message_size) const {
+            signature_t sig;
             Algorithm::sign_fn(sig, this->data(), nullptr, u8(message), message_size);
             return sig;
         }
@@ -419,9 +438,9 @@ namespace monocypher {
         static constexpr auto public_key_fn = ::crypto_sign_public_key;
 
         // Convenient type aliases for those who don't like angle brackets
-        using signature   = signature<EdDSA>;
-        using public_key  = public_key<EdDSA>;
-        using signing_key = signing_key<EdDSA>;
+        using signature   = monocypher::signature<EdDSA>;
+        using public_key  = monocypher::public_key<EdDSA>;
+        using signing_key = monocypher::signing_key<EdDSA>;
     };
 
     /// EdDSA with Curve25519 and SHA-512.
@@ -433,9 +452,9 @@ namespace monocypher {
         static constexpr auto public_key_fn = ::crypto_ed25519_public_key;
 
         // Convenient type aliases for those who don't like angle brackets
-        using signature   = signature<Ed25519>;
-        using public_key  = public_key<Ed25519>;
-        using signing_key = signing_key<Ed25519>;
+        using signature   = monocypher::signature<Ed25519>;
+        using public_key  = monocypher::public_key<Ed25519>;
+        using signing_key = monocypher::signing_key<Ed25519>;
     };
 
 
