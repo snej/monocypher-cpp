@@ -6,7 +6,7 @@
 //
 //  Copyright (c) 2020 Jens Alfke. All rights reserved.
 //
-// --- 2-clause BSD licence (same as Monocypher's) follows ---
+// --- Standard 2-clause BSD licence follows ---
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -105,7 +105,6 @@ namespace monocypher {
     template<> inline bool operator== (const byte_array<64> &a, const byte_array<64> &b) {
         return 0 == ::crypto_verify64(a, b);
     }
-    // TODO: Make this work for Size other than 16, 32, 64.
 
 
 //======== General purpose hash (Blake2b)
