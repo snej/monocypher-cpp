@@ -211,7 +211,9 @@ namespace monocypher {
         struct hash : public secret_byte_array<Size> { };
 
         /// The per-password "salt" input used to deter multi-password attacks.
-        struct salt : public secret_byte_array<16> { };
+        struct salt : public secret_byte_array<16> {
+            salt() {::memset(data(), 0, sizeof(*this));}
+        };
 
         /// Generates an Argon2i hash from a password and a given salt value.
         /// \note This function is _deliberately_ slow. It's intended to take at least 0.5sec.
