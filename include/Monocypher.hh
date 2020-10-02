@@ -387,8 +387,8 @@ namespace monocypher {
     /// A secret/private key for generating signatures. (For <Algorithm> use <EdDSA> or <Ed25519>.)
     template <class Algorithm>
     struct signing_key : public secret_byte_array<32> {
-        using public_key_t = public_key<Algorithm>;
-        using signature_t = signature<Algorithm>;
+        using public_key = monocypher::public_key<Algorithm>;
+        using signature = monocypher::signature<Algorithm>;
 
         /// Constructs an instance given the key data (32 bytes).
         explicit signing_key(const void *key_bytes) {
@@ -405,24 +405,24 @@ namespace monocypher {
         }
 
         /// Computes and returns the matching public key.
-        public_key_t public_key() const {
-            public_key_t pub;
+        public_key get_public_key() const {
+            public_key pub;
             Algorithm::public_key_fn(pub, this->data());
             return pub;
         }
 
         /// Signs a message. (Passing in the public key speeds up the computation.)
-        signature_t sign(const void *message, size_t message_size,
-                       const public_key_t &pubKey) const {
-            signature_t sig;
+        signature sign(const void *message, size_t message_size,
+                            const public_key &pubKey) const {
+            signature sig;
             Algorithm::sign_fn(sig, this->data(), pubKey, u8(message), message_size);
             return sig;
         }
 
         /// Signs a message.
         /// (This is a bit slower than the version that takes the public key, because it has to recompute it.)
-        signature_t sign(const void *message, size_t message_size) const {
-            signature_t sig;
+        signature sign(const void *message, size_t message_size) const {
+            signature sig;
             Algorithm::sign_fn(sig, this->data(), nullptr, u8(message), message_size);
             return sig;
         }

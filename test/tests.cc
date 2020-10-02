@@ -119,7 +119,7 @@ static void test_signatures() {
     cout << "--- test_signatures ---\n";
     auto key = EdDSA::signing_key::generate();
     cout << "secret key: " << hexString(key) << "\n";
-    auto pubKey = key.public_key();
+    auto pubKey = key.get_public_key();
     cout << "public key: " << hexString(pubKey) << "\n";
     auto signature = key.sign(message, strlen(message), pubKey);
     cout << "signature: " << hexString(signature) << "\n";
