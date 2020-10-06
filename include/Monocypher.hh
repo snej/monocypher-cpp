@@ -42,22 +42,24 @@
 #include <memory>  // for std::make_unique
 #include <utility> // for std::pair
 
-// On Apple platforms, arc4random_buf is declared in <cstdlib>, above.
-// On Linux, in <bsd/stdlib.h>. On Windows, in <arc4random.h> (apparently)
-#ifndef __APPLE__
-#  if defined __has_include
-#    if __has_include (<arc4random.h>)
-#      include <arc4random.h>
-#    elif __has_include (<bsd/stdlib.h>)
-#      include <bsd/stdlib.h>
-#    else
-#      error "I don't know where to find arc4random_buf()"
-#    endif
-#  else
-#    error "I don't know where to find arc4random_buf()"
+// On Apple platforms, `arc4random_buf()` is declared in <cstdlib>, above.
+// On Linux, it _may_ be in <bsd/stdlib.h> if the BSD compatibility lib is present.
+// If it isn't available, we fall back to using C++ `std::random_device` (but see warning below.)
+#ifdef __APPLE__
+#  define MONOCYPHER_HAS_ARC4RANDOM
+#elif defined __has_include
+#  if __has_include (<arc4random.h>)
+#    include <arc4random.h>
+#    define MONOCYPHER_HAS_ARC4RANDOM
+#  elif __has_include (<bsd/stdlib.h>)
+#    include <bsd/stdlib.h>
+#    define MONOCYPHER_HAS_ARC4RANDOM
 #  endif
 #endif
 
+#ifndef MONOCYPHER_HAS_ARC4RANDOM
+#include <random>
+#endif
 
 namespace monocypher {
 
@@ -72,8 +74,39 @@ namespace monocypher {
     template <size_t Size>
     class byte_array: public std::array<uint8_t, Size> {
     public:
-        void randomize()                            {::arc4random_buf(this->data(), Size);}
+        /// Fills the array with cryptographically-secure random bytes.
+        /// \warning On platforms where `arc4random` is unavailable, this uses C++'s `std::random_device`.
+        ///    The C++ standard says "random_device may be implemented in terms of an implementation-defined
+        ///    pseudo-random number engine if a non-deterministic source (e.g. a hardware device) is not
+        ///    available to the implementation." In that situation you should try to use some other source
+        ///    of randomization.
+        void randomize() {
+#ifdef MONOCYPHER_HAS_ARC4RANDOM
+#  undef MONOCYPHER_HAS_ARC4RANDOM
+            ::arc4random_buf(this->data(), Size);
+#else
+            static_assert(Size % sizeof(unsigned) == 0, "randomize() doesn't support this size");
+            std::random_device rng;
+            for (auto i = this->begin(); i != this->end(); i += sizeof(unsigned)) {
+                unsigned r = rng();
+                memcpy(i, &r, sizeof(unsigned));
+            }
+#endif
+        }
+
+        /// Securely fills the array with zeroes. Unlike a regular `memset` this cannot be optimized
+        /// away even if the array is about to be destructed.
         void wipe()                                 {::crypto_wipe(this->data(), Size);}
+
+        /// Idiomatic synonym for `wipe`.
+        void clear()                                {this->wipe();}
+
+        void fill(uint8_t b) {  // overridden to use `wipe` first
+            this->wipe();
+            if (b != 0) std::array<uint8_t,Size>::fill(b);
+        }
+
+        /// A byte_array can be passed where a `uint8_t*` is expected.
         operator uint8_t*()                         {return this->data();}
         operator const uint8_t*() const             {return this->data();}
     };

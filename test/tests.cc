@@ -12,6 +12,41 @@
 // These are some incomplete tests of the Monocypher.hh C++ API.
 
 
+static void test_randomize() {
+    // _Really_ testing a RNG is difficult and involves statistics. At this level all I want to
+    // verify is that randomize() is touching every byte of the array.
+
+    cout << "--- test_randomize ---\n";
+    session::key key;
+    // First wipe the key and verify it's zeroed:
+    key.wipe();
+    cout << "Before: " << hexString(key) << "\n";
+    for (size_t i = 0; i < sizeof(key); ++i)
+        assert(key[i] == 0);
+
+    // Randomize 'key', then heck that all bytes have changed (from 00.)
+    // Obviously this can fail even with a real RNG, so try multiple times.
+    // (Chance of one failure is 12%; ten in a row is less than one in a billion.)
+    bool changed = false;
+    for (int attempt = 0; attempt < 10; ++attempt) {
+        key.randomize();
+        cout << "After:  " << hexString(key) << "\n";
+        changed = true;
+        for (size_t i = 0; i < sizeof(key); ++i) {
+            if (key[i] == 0) {
+                cout << "    nope, byte[" << i << "] is still 00...\n";
+                changed = false;
+                break;
+            }
+        }
+        if (changed)
+            break;
+    }
+    assert(changed);
+    cout << "✔︎ randomize passed\n\n";
+}
+
+
 static void test_blake2b() {
     cout << "--- test_blake2b ---\n";
     monocypher::hash<Blake2b> h1 = blake2b64::create("hello world", 11);
@@ -29,7 +64,7 @@ static void test_blake2b() {
     assert(str2 == str1);
 
     assert(h2 == h1);
-    cout << "✔︎ Blake2b passed\n";
+    cout << "✔︎ Blake2b passed\n\n";
 }
 
 
@@ -62,7 +97,7 @@ static void test_argon2i() {
     cout << "Pre-salted hash = " << str3 << "\n";
     assert(str3 == "35388F22 9FF73B11 D9E04E59 853547CC CA11A05E 3A67670F B5CA02AD BB52062D "
                    "53CD02A5 DE5611B1 2D10B5E4 DBF28A48 A389F791 4F05F532 728DF45D 4283470F");
-    cout << "✔︎ Argon2i passed\n";
+    cout << "✔︎ Argon2i passed\n\n";
 }
 
 
@@ -80,7 +115,7 @@ static void test_key_exchange() {
     cout << "shared secret 1 = " << hexString(secret1) << "\n";
     cout << "shared secret 2 = " << hexString(secret2) << "\n";
     assert(secret1 == secret2);
-    cout << "✔︎ Key exchange passed\n";
+    cout << "✔︎ Key exchange passed\n\n";
 }
 
 
@@ -109,7 +144,7 @@ static void test_encryption() {
     auto nonceStr = hexString(intNonce);
     cout << "Integer Nonce = " << nonceStr << "\n";
     assert(nonceStr == "90785634 12000000 00000000 00000000 00000000 00000000");
-    cout << "✔︎ Encryption passed\n";
+    cout << "✔︎ Encryption passed\n\n";
 }
 
 
@@ -132,16 +167,18 @@ static void test_signatures() {
     ok = pubKey.check(signature, message, strlen(message));
     assert(!ok);
     cout << "✔︎ modified signature is not valid.\n";
-    cout << "✔︎ Signatures passed\n";
+    cout << "✔︎ Signatures passed\n\n";
 }
 
 
 int main(int argc, const char * argv[]) {
+    cout << "Testing Monocypher-C++ wrapper...\n\n";
+    test_randomize();
     test_blake2b();
     test_argon2i();
     test_key_exchange();
     test_encryption();
     test_signatures();
-    cout << "✔︎✔︎✔︎ ALL TESTS PASSED ✔︎✔︎✔︎\n";
+    cout << "✔︎✔︎✔︎ ALL C++ WRAPPER TESTS PASSED ✔︎✔︎✔︎ (but this is not a full test of Monocypher itself)\n";
     return 0;
 }

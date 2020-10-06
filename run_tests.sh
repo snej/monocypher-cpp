@@ -1,6 +1,6 @@
 #! /bin/bash -e
 
-if [ ! -d vendor/monocypher ]
+if [ ! -d vendor/monocypher/src ]
 then
     echo "vendor/monocypher is missing! (Try running 'git submodule update --init')"
     exit 1
@@ -8,7 +8,7 @@ fi
 
 echo "Compiling..."
 
-cc -x c++ -std=c++14 -Wall \
+clang -x c++ -std=c++14 -stdlib=libc++ -Wall \
    -I include -I vendor/monocypher/src -I vendor/monocypher/src/optional \
    test/tests.cc \
    vendor/monocypher/src/*.c \
