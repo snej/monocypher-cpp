@@ -15,4 +15,9 @@ cmake --build .
 
 echo "Running tests..."
 
-./tests
+if [ -e Debug/tests.exe ]
+then
+    Debug/tests.exe
+else
+    ./tests
+fi
