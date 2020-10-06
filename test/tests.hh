@@ -15,13 +15,13 @@ using namespace monocypher;
 
 
 static string hexString(const void *buf, size_t size) {
-    char hex[2*size + size/4 + 1];
-    char *dst = hex;
+    auto hex = make_unique<char[]>(2*size + size/4 + 1);
+    char *dst = hex.get();
     for (size_t i = 0; i < size; i++) {
         if (i > 0 && (i % 4) == 0) *dst++ = ' ';
         dst += sprintf(dst, "%02X", ((const uint8_t*)buf)[i]);
     }
-    return hex;
+    return string(hex.get());
 }
 
 
