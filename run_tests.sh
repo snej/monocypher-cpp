@@ -6,17 +6,18 @@ then
     exit 1
 fi
 
-echo "Compiling..."
+echo "Building..."
 
-clang -x c++ -std=c++14 -stdlib=libc++ -Wall \
-   -I include -I vendor/monocypher/src -I vendor/monocypher/src/optional \
-   test/tests.cc \
-   vendor/monocypher/src/*.c \
-   vendor/monocypher/src/optional/*.c \
-   -lc++ \
-   -o tests
+mkdir -p build_cmake
+cd build_cmake
+cmake ..
+cmake --build .
 
 echo "Running tests..."
 
-./tests
-rm tests
+if [ -e Debug/tests.exe ]
+then
+    Debug/tests.exe
+else
+    ./tests
+fi

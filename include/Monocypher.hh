@@ -89,7 +89,7 @@ namespace monocypher {
             std::random_device rng;
             for (auto i = this->begin(); i != this->end(); i += sizeof(unsigned)) {
                 unsigned r = rng();
-                memcpy(i, &r, sizeof(unsigned));
+                memcpy(&*i, &r, sizeof(unsigned));
             }
 #endif
         }

@@ -7,6 +7,7 @@
 
 #include "tests.hh"
 #include <iostream>
+#include <tuple>    // for `tie`
 
 
 // These are some incomplete tests of the Monocypher.hh C++ API.
