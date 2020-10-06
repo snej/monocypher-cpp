@@ -1,3 +1,5 @@
+![Build+Test](https://github.com/snej/monocypher-cpp/workflows/Build+Test/badge.svg)
+
 # Monocypher C++ API
 
 This is an idiomatic C++ API for [Monocypher](https://monocypher.org). Monocypher is:
@@ -18,9 +20,11 @@ This API here is:
 **Safe:** Strong typing makes the API safer. For example, you can't accidentally pass a Diffie-Hellman public key (`monocypher::key_exchange::public_key`) to a function expecting an Ed25519 public key (`monocypher::public_key`).
 Moreover, objects are zeroed out when destructed, to avoid leaving secrets in memory, and the `==` and `!=` operators use constant-time comparisons instead of regular memcmp, to avoid timing attacks.
 
-**Immature:** There had to be a downside :) This API is very new (as of late Sept 2020), is only partly tested, and has not yet been used much. However, it's just a very thin wrapper around Monocypher 3.1.1, which is well-tested and audited.
+**Immature:** There had to be a downside :) This API is very new (as of October 2020), is only partly tested, and has not yet been used much. However, it's just a very thin wrapper around Monocypher 3.1.1, which is well-tested and audited.
 
 ## Using it
+
+You should be OK on recent versions of Linux, Windows, and Apple platforms, using up-to-date versions of Clang, GCC or MSVC. That's what the CI tests cover. 
 
 0. If you haven't already, get the Monocypher submodule by running `git submodule update --init`.
 1. Run `run_tests.sh`. This just compiles & runs `test/tests.cc`, some simple tests.
@@ -36,6 +40,6 @@ Moreover, objects are zeroed out when destructed, to avoid leaving secrets in me
 
 ## Caveats
 
-* The only platform dependency I know of is the use of `arc4random_buf`. This function is available on macOS and Linux. On other platforms you may need to substitute an equivalent call to fill a buffer with cryptographically-random bytes. (It would be nice to add `#ifdefs` here to make it cross-platform. Patches welcome!)
-* This code has so far only been compiled with Clang on macOS. It should work with GCC and MSVC, but you never know.
+* Monocypher doesn't supply its own random-number generator API. I've provided `byte_array::randomize()`, which tries to call `arc4_randombuf` where available. The fallback is `std::random_device`, which usually wraps the platform's RNG. But if your platform has no secure RNG (probably only true on embedded systems...) then `random_device` will happily provide low-entry pseudorandom output, which could lead to security problems. In that case you'll need to find your own source of randomness and modify the `randomize()` method to call it insteaed.
+* The tests in this repository are far from exhaustive. Since Monocypher itself does the hard work, and is well-tested, my tests mostly just endure that the C++ wrappers themselves are useable and seem to provide sane output.
 * Did I mention this is new code?
