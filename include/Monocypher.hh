@@ -103,7 +103,12 @@ namespace monocypher {
 
         void fill(uint8_t b) {  // overridden to use `wipe` first
             this->wipe();
-            if (b != 0) std::array<uint8_t,Size>::fill(b);
+            if (b != 0) std::array<uint8_t,Size>::fill(b);  // (wipe already fills with 0)
+        }
+
+        void fillWith(const void *bytes, size_t size) {
+            assert(size == sizeof(*this));
+            ::memcpy(this->data(), bytes, sizeof(*this));
         }
 
         /// A byte_array can be passed where a `uint8_t*` is expected.
@@ -351,8 +356,10 @@ namespace monocypher {
             /// Constructs a randomized session key.
             key()                                       {randomize();}
 
-            /// Constructs a key containing the given bytes.
-            explicit key(const void *key_bytes)         {::memcpy(this->data(), key_bytes, 32);}
+            /// Constructs a key containing the given bytes. `key_size` must be 32, i.e. `sizeof(key)`.
+            explicit key(const void *key_bytes, size_t key_size) {
+                fillWith(key_bytes, key_size);
+            }
 
             /// Constructs a key from the shared secret created during key exchange.
             explicit key(const key_exchange::shared_secret &secret)
@@ -400,9 +407,9 @@ namespace monocypher {
     struct public_key : public byte_array<32> {
         public_key() { }
 
-        /// Constructs an instance given the key data (32 bytes).
-        explicit public_key(const void *key_data) {
-            memcpy(this->data(), key_data, 32);
+        /// Constructs an instance given the key data. `key_size` must be 32, i.e. `sizeof(public_key)`.
+        explicit public_key(const void *key_bytes, size_t key_size) {
+            fillWith(key_bytes, key_size);
         }
 
         /// Verifies a signature.
@@ -422,9 +429,9 @@ namespace monocypher {
         using public_key = monocypher::public_key<Algorithm>;
         using signature = monocypher::signature<Algorithm>;
 
-        /// Constructs an instance given the key data (32 bytes).
-        explicit signing_key(const void *key_bytes) {
-            memcpy(this->data(), key_bytes, 32);
+        /// Constructs an instance given the key data. `key_size` must be 32, i.e. `sizeof(signing_key)`.
+        explicit signing_key(const void *key_bytes, size_t key_size) {
+            fillWith(key_bytes, key_size);
         }
 
         /// Constructs a signing_key from the shared secret created during key exchange.
