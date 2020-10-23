@@ -238,7 +238,8 @@ namespace monocypher {
 //======== Password Key Derivation
 
 
-    /// Argon2i is a resource intensive password key derivation scheme.
+    /// Argon2i is a password key derivation scheme. It is deliberately slow and memory-intensive,
+    /// to deter brute-force attacks.
     /// `Size` is the size of the hash in bytes, and should be either 32 or 64.
     /// The `NBlocks` and `NIterations` parameters can tune the memory usage and time, but read
     /// the Monocypher documentation so you know what you're doing.
@@ -255,11 +256,14 @@ namespace monocypher {
         /// Generates an Argon2i hash from a password and a given salt value.
         /// \note This function is _deliberately_ slow. It's intended to take at least 0.5sec.
         /// \warning This _deliberately_ allocates a lot of memory while running: 100MB with the default
-        ///     `NBlocks`. Throws `std::bad_alloc` on allocation failure.
+        ///     `NBlocks`. Throws `std::bad_alloc` on allocation failure, unless you've disabled
+        ///      exceptions, in which case it aborts.
         static hash create(const void *password, size_t password_size, const salt &s4lt) {
             assert(password_size <= UINT32_MAX);
             hash result;
             auto work_area = std::make_unique<uint8_t[]>(NBlocks * 1024);
+            if (!work_area)
+                abort();  // exceptions must be disabled, but we cannot continue.
             ::crypto_argon2i(result, Size, work_area.get(), NBlocks, NIterations,
                              u8(password), uint32_t(password_size), s4lt, sizeof(s4lt));
             return result;
@@ -268,8 +272,9 @@ namespace monocypher {
         /// Generates an Argon2i hash from the input password and a randomly-generated salt value,
         /// and returns both.
         /// \note This function is _deliberately_ slow. It's intended to take at least 0.5sec.
-        /// \warning This deliberately allocates a lot of memory while running: 100MB with the default
-        ///     `NBlocks`. Throws `std::bad_alloc` on allocation failure.
+        /// \warning This _deliberately_ allocates a lot of memory while running: 100MB with the default
+        ///     `NBlocks`. Throws `std::bad_alloc` on allocation failure, unless you've disabled
+        ///      exceptions, in which case it aborts.
         static std::pair<hash, salt> create(const void *password, size_t password_size) {
             salt s4lt;
             s4lt.randomize();
