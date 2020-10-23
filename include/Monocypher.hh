@@ -36,11 +36,12 @@
 #include "monocypher-ed25519.h"
 
 #include <array>
-#include <cassert>
 #include <cstdlib>
 #include <cstring>
 #include <memory>  // for std::make_unique
+#include <string>
 #include <utility> // for std::pair
+#include <cassert>
 
 // On Apple platforms, `arc4random_buf()` is declared in <cstdlib>, above.
 // On Linux, it _may_ be in <bsd/stdlib.h> if the BSD compatibility lib is present.
@@ -162,6 +163,11 @@ namespace monocypher {
             return result;
         }
 
+        static hash create(const std::string &message) noexcept {
+            return create(message.data(), message.size());
+        }
+
+
         /// Returns the Blake2b hash of a message and a secret key, for use as a MAC.
         template <size_t KeySize>
         static hash createMAC(const void *message, size_t message_size,
@@ -171,6 +177,12 @@ namespace monocypher {
                                          key, KeySize,
                                          u8(message), message_size);
             return result;
+        }
+
+        template <size_t KeySize>
+        static hash createMAC(const std::string &message,
+                              const secret_byte_array<KeySize> &key) noexcept {
+            return createMAC(message.data(), message.size(), key);
         }
 
 
@@ -194,6 +206,10 @@ namespace monocypher {
             builder& update(const void *message, size_t message_size) {
                 HashAlgorithm::update_fn(&_ctx, u8(message), message_size);
                 return *this;
+            }
+
+            builder& update(const std::string &message, size_t message_size) {
+                return update(message.data(), message.size());
             }
 
             /// Returns the final Blake2b hash of all the data passed to `update`.
@@ -269,6 +285,10 @@ namespace monocypher {
             return result;
         }
 
+        static hash create(const std::string &password, const salt &s4lt) {
+            return create(password.data(), password.size(), s4lt);
+        }
+
         /// Generates an Argon2i hash from the input password and a randomly-generated salt value,
         /// and returns both.
         /// \note This function is _deliberately_ slow. It's intended to take at least 0.5sec.
@@ -279,6 +299,10 @@ namespace monocypher {
             salt s4lt;
             s4lt.randomize();
             return {create(password, password_size, s4lt), s4lt};
+        }
+
+        static std::pair<hash, salt> create(const std::string &password) {
+            return create(password.data(), password.size());
         }
     };
 
@@ -366,6 +390,9 @@ namespace monocypher {
                 fillWith(key_bytes, key_size);
             }
 
+            explicit key(const std::string &k3y)
+            :key(k3y.data(), k3y.size()) { }
+
             /// Constructs a key from the shared secret created during key exchange.
             explicit key(const key_exchange::shared_secret &secret)
                                                         :secret_byte_array<32>(secret) { }
@@ -381,6 +408,12 @@ namespace monocypher {
                 return out_mac;
             }
 
+            mac lock(const nonce &nonce,
+                     const std::string &plain_text,
+                     void *cipher_text) const {
+                return lock(nonce, plain_text.data(), plain_text.size(), cipher_text);
+            }
+
             /// Authenticates `cipher_text` using the `mac`, then decrypts it, writing the result to
             ///  `plain_text` (which may be the same address.)
             /// Returns false if the authentication fails.
@@ -390,6 +423,13 @@ namespace monocypher {
                         void *plain_text) const {
                 return 0 == ::crypto_unlock(u8(plain_text), this->data(), nonce,
                                             mac, u8(cipher_text), text_size);
+            }
+
+            bool unlock(const nonce &nonce,
+                        const mac &mac,
+                        const std::string &cipher_text,
+                        void *plain_text) const {
+                return unlock(nonce, mac, cipher_text.data(), cipher_text.size(), plain_text);
             }
         };
 
@@ -417,9 +457,16 @@ namespace monocypher {
             fillWith(key_bytes, key_size);
         }
 
+        explicit public_key(const std::string &key)
+        :public_key(key.data(), key.size()) { }
+
         /// Verifies a signature.
         bool check(const signature<Algorithm> &sig, const void *msg, size_t msg_size) const {
             return 0 == Algorithm::check_fn(sig, this->data(), u8(msg), msg_size);
+        }
+
+        bool check(const signature<Algorithm> &sig, const std::string &msg) const {
+            return check(sig, msg.data(), msg.size());
         }
 
         bool operator== (const public_key<Algorithm> &b) const {
@@ -439,6 +486,9 @@ namespace monocypher {
             fillWith(key_bytes, key_size);
         }
 
+        explicit signing_key(const std::string &key)
+        :signing_key(key.data(), key.size()) { }
+
         /// Constructs a signing_key from the shared secret created during key exchange.
         explicit signing_key(const key_exchange::shared_secret &secret)
         :secret_byte_array<32>(secret) { }
@@ -457,10 +507,14 @@ namespace monocypher {
 
         /// Signs a message. (Passing in the public key speeds up the computation.)
         signature sign(const void *message, size_t message_size,
-                            const public_key &pubKey) const {
+                       const public_key &pubKey) const {
             signature sig;
             Algorithm::sign_fn(sig, this->data(), pubKey, u8(message), message_size);
             return sig;
+        }
+
+        signature sign(const std::string &message, const public_key &pubKey) const {
+            return sign(message.data(), message.size(), pubKey);
         }
 
         /// Signs a message.
@@ -469,6 +523,10 @@ namespace monocypher {
             signature sig;
             Algorithm::sign_fn(sig, this->data(), nullptr, u8(message), message_size);
             return sig;
+        }
+
+        signature sign(const std::string &message) const {
+            return sign(message.data(), message.size());
         }
 
     private:
