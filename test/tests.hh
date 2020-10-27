@@ -27,7 +27,7 @@ static string hexString(const void *buf, size_t size) {
 
 template <size_t Size>
 string hexString(const byte_array<Size> &a) {
-    return hexString(a, Size);
+    return hexString(a.data(), Size);
 }
 
 

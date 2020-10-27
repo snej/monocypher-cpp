@@ -112,9 +112,8 @@ namespace monocypher {
             ::memcpy(this->data(), bytes, sizeof(*this));
         }
 
-        /// A byte_array can be passed where a `uint8_t*` is expected.
-        operator uint8_t*()                         {return this->data();}
-        operator const uint8_t*() const             {return this->data();}
+        explicit operator uint8_t*()                         {return this->data();}
+        explicit operator const uint8_t*() const             {return this->data();}
     };
 
 
@@ -136,13 +135,13 @@ namespace monocypher {
     }
 
     template<> inline bool operator== (const byte_array<16> &a, const byte_array<16> &b) {
-        return 0 == ::crypto_verify16(a, b);
+        return 0 == ::crypto_verify16(a.data(), b.data());
     }
     template<> inline bool operator== (const byte_array<32> &a, const byte_array<32> &b) {
-        return 0 == ::crypto_verify32(a, b);
+        return 0 == ::crypto_verify32(a.data(), b.data());
     }
     template<> inline bool operator== (const byte_array<64> &a, const byte_array<64> &b) {
-        return 0 == ::crypto_verify64(a, b);
+        return 0 == ::crypto_verify64(a.data(), b.data());
     }
 
 
@@ -158,7 +157,7 @@ namespace monocypher {
         /// Returns the Blake2b hash of a message.
         static hash create(const void *message, size_t message_size) noexcept {
             hash result;
-            HashAlgorithm::create_fn(result, Size,
+            HashAlgorithm::create_fn(result.data(), Size,
                                      u8(message), message_size);
             return result;
         }
@@ -215,7 +214,7 @@ namespace monocypher {
             /// Returns the final Blake2b hash of all the data passed to `update`.
             hash final() {
                 hash result;
-                HashAlgorithm::final_fn(&_ctx, result);
+                HashAlgorithm::final_fn(&_ctx, result.data());
                 return result;
             }
 
@@ -280,8 +279,10 @@ namespace monocypher {
             auto work_area = std::make_unique<uint8_t[]>(NBlocks * 1024);
             if (!work_area)
                 abort();  // exceptions must be disabled, but we cannot continue.
-            ::crypto_argon2i(result, Size, work_area.get(), NBlocks, NIterations,
-                             u8(password), uint32_t(password_size), s4lt, sizeof(s4lt));
+            ::crypto_argon2i(result.data(), Size,
+                             work_area.get(), NBlocks, NIterations,
+                             u8(password), uint32_t(password_size),
+                             s4lt.data(), sizeof(s4lt));
             return result;
         }
 
@@ -335,7 +336,7 @@ namespace monocypher {
         /// Returns the public key to send to the other party.
         public_key get_public_key() const {
             public_key pubkey;
-            ::crypto_key_exchange_public_key(pubkey, _secret_key);
+            ::crypto_key_exchange_public_key(pubkey.data(), _secret_key.data());
             return pubkey;
         }
 
@@ -347,7 +348,7 @@ namespace monocypher {
         /// Given the other party's public key, computes the shared secret.
         shared_secret get_shared_secret(const public_key &their_public_key) const {
             shared_secret shared;
-            ::crypto_key_exchange(shared, _secret_key, their_public_key);
+            ::crypto_key_exchange(shared.data(), _secret_key.data(), their_public_key.data());
             return shared;
         }
 
@@ -403,7 +404,7 @@ namespace monocypher {
                      const void *plain_text, size_t text_size,
                      void *cipher_text) const {
                 mac out_mac;
-                ::crypto_lock(out_mac, u8(cipher_text), this->data(), nonce,
+                ::crypto_lock(out_mac.data(), u8(cipher_text), this->data(), nonce.data(),
                               u8(plain_text), text_size);
                 return out_mac;
             }
@@ -421,8 +422,8 @@ namespace monocypher {
                         const mac &mac,
                         const void *cipher_text, size_t text_size,
                         void *plain_text) const {
-                return 0 == ::crypto_unlock(u8(plain_text), this->data(), nonce,
-                                            mac, u8(cipher_text), text_size);
+                return 0 == ::crypto_unlock(u8(plain_text), this->data(), nonce.data(),
+                                            mac.data(), u8(cipher_text), text_size);
             }
 
             bool unlock(const nonce &nonce,
@@ -462,7 +463,7 @@ namespace monocypher {
 
         /// Verifies a signature.
         bool check(const signature<Algorithm> &sig, const void *msg, size_t msg_size) const {
-            return 0 == Algorithm::check_fn(sig, this->data(), u8(msg), msg_size);
+            return 0 == Algorithm::check_fn(sig.data(), this->data(), u8(msg), msg_size);
         }
 
         bool check(const signature<Algorithm> &sig, const std::string &msg) const {
@@ -470,7 +471,7 @@ namespace monocypher {
         }
 
         bool operator== (const public_key<Algorithm> &b) const {
-            return 0 == ::crypto_verify32(this->data(), b);
+            return 0 == ::crypto_verify32(this->data(), b.data());
         }
     };
 
@@ -501,7 +502,7 @@ namespace monocypher {
         /// Computes and returns the matching public key.
         public_key get_public_key() const {
             public_key pub;
-            Algorithm::public_key_fn(pub, this->data());
+            Algorithm::public_key_fn(pub.data(), this->data());
             return pub;
         }
 
@@ -509,7 +510,7 @@ namespace monocypher {
         signature sign(const void *message, size_t message_size,
                        const public_key &pubKey) const {
             signature sig;
-            Algorithm::sign_fn(sig, this->data(), pubKey, u8(message), message_size);
+            Algorithm::sign_fn(sig.data(), this->data(), pubKey.data(), u8(message), message_size);
             return sig;
         }
 
@@ -521,7 +522,7 @@ namespace monocypher {
         /// (This is a bit slower than the version that takes the public key, because it has to recompute it.)
         signature sign(const void *message, size_t message_size) const {
             signature sig;
-            Algorithm::sign_fn(sig, this->data(), nullptr, u8(message), message_size);
+            Algorithm::sign_fn(sig.data(), this->data(), nullptr, u8(message), message_size);
             return sig;
         }
 
