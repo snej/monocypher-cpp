@@ -66,6 +66,8 @@ namespace monocypher {
 
 //======== Utilities:
 
+    using string_ref = std::string_view;
+//    using string_ref = const std::string&;        // C++11 compatibility
 
     static inline const uint8_t* u8(const void *p)  {return reinterpret_cast<const uint8_t*>(p);}
     static inline uint8_t* u8(void *p)              {return reinterpret_cast<uint8_t*>(p);}
@@ -148,7 +150,8 @@ namespace monocypher {
 //======== General purpose hash (Blake2b)
 
 
-    /// Cryptographic hash class, templated by algorithm.
+    /// Cryptographic hash class, templated by algorithm and size.
+    /// The only `Algorithm` currently available is `Blake2b`.
     /// The `Size` is in bytes and must be between 1 and 64. Sizes below 32 are not recommended.
     template <class HashAlgorithm, size_t Size=64>
     class hash : public byte_array<Size> {
@@ -162,12 +165,12 @@ namespace monocypher {
             return result;
         }
 
-        static hash create(const std::string &message) noexcept {
+        static hash create(string_ref message) noexcept {
             return create(message.data(), message.size());
         }
 
 
-        /// Returns the Blake2b hash of a message and a secret key, for use as a MAC.
+        /// Returns the hash of a message and a secret key, for use as a MAC.
         template <size_t KeySize>
         static hash createMAC(const void *message, size_t message_size,
                               const secret_byte_array<KeySize> &key) noexcept {
@@ -179,7 +182,7 @@ namespace monocypher {
         }
 
         template <size_t KeySize>
-        static hash createMAC(const std::string &message,
+        static hash createMAC(string_ref message,
                               const secret_byte_array<KeySize> &key) noexcept {
             return createMAC(message.data(), message.size(), key);
         }
@@ -207,7 +210,7 @@ namespace monocypher {
                 return *this;
             }
 
-            builder& update(const std::string &message, size_t message_size) {
+            builder& update(string_ref message, size_t message_size) {
                 return update(message.data(), message.size());
             }
 
@@ -240,7 +243,6 @@ namespace monocypher {
         static constexpr auto update_fn     = ::crypto_blake2b_update;
         static constexpr auto final_fn      = ::crypto_blake2b_final;
     };
-    // TODO: Add SHA-512
 
 
     /// Blake2b-64 hash class.
@@ -286,7 +288,7 @@ namespace monocypher {
             return result;
         }
 
-        static hash create(const std::string &password, const salt &s4lt) {
+        static hash create(string_ref password, const salt &s4lt) {
             return create(password.data(), password.size(), s4lt);
         }
 
@@ -302,7 +304,7 @@ namespace monocypher {
             return {create(password, password_size, s4lt), s4lt};
         }
 
-        static std::pair<hash, salt> create(const std::string &password) {
+        static std::pair<hash, salt> create(string_ref password) {
             return create(password.data(), password.size());
         }
     };
@@ -391,7 +393,7 @@ namespace monocypher {
                 fillWith(key_bytes, key_size);
             }
 
-            explicit key(const std::string &k3y)
+            explicit key(string_ref k3y)
             :key(k3y.data(), k3y.size()) { }
 
             /// Constructs a key from the shared secret created during key exchange.
@@ -410,7 +412,7 @@ namespace monocypher {
             }
 
             mac lock(const nonce &nonce,
-                     const std::string &plain_text,
+                     string_ref plain_text,
                      void *cipher_text) const {
                 return lock(nonce, plain_text.data(), plain_text.size(), cipher_text);
             }
@@ -428,7 +430,7 @@ namespace monocypher {
 
             bool unlock(const nonce &nonce,
                         const mac &mac,
-                        const std::string &cipher_text,
+                        string_ref cipher_text,
                         void *plain_text) const {
                 return unlock(nonce, mac, cipher_text.data(), cipher_text.size(), plain_text);
             }
@@ -458,7 +460,7 @@ namespace monocypher {
             fillWith(key_bytes, key_size);
         }
 
-        explicit public_key(const std::string &key)
+        explicit public_key(string_ref key)
         :public_key(key.data(), key.size()) { }
 
         /// Verifies a signature.
@@ -466,7 +468,7 @@ namespace monocypher {
             return 0 == Algorithm::check_fn(sig.data(), this->data(), u8(msg), msg_size);
         }
 
-        bool check(const signature<Algorithm> &sig, const std::string &msg) const {
+        bool check(const signature<Algorithm> &sig, string_ref msg) const {
             return check(sig, msg.data(), msg.size());
         }
 
@@ -487,7 +489,7 @@ namespace monocypher {
             fillWith(key_bytes, key_size);
         }
 
-        explicit signing_key(const std::string &key)
+        explicit signing_key(string_ref key)
         :signing_key(key.data(), key.size()) { }
 
         /// Constructs a signing_key from the shared secret created during key exchange.
@@ -514,7 +516,7 @@ namespace monocypher {
             return sig;
         }
 
-        signature sign(const std::string &message, const public_key &pubKey) const {
+        signature sign(string_ref message, const public_key &pubKey) const {
             return sign(message.data(), message.size(), pubKey);
         }
 
@@ -526,7 +528,7 @@ namespace monocypher {
             return sig;
         }
 
-        signature sign(const std::string &message) const {
+        signature sign(string_ref message) const {
             return sign(message.data(), message.size());
         }
 
