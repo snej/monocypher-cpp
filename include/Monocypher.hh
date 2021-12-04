@@ -39,9 +39,20 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>  // for std::make_unique
-#include <string>
 #include <utility> // for std::pair
 #include <cassert>
+
+// Figure out whether std::string_view is available
+#ifdef __has_include
+#   if __has_include(<string_view>)
+#       include <string_view>
+#       define MONOCYPHER_HAS_STRING_VIEW
+#   endif
+#endif
+#ifndef MONOCYPHER_HAS_STRING_VIEW
+#include <string>
+#endif
+
 
 // On Apple platforms, `arc4random_buf()` is declared in <cstdlib>, above.
 // On Linux, it _may_ be in <bsd/stdlib.h> if the BSD compatibility lib is present.
@@ -66,8 +77,12 @@ namespace monocypher {
 
 //======== Utilities:
 
+#ifdef MONOCYPHER_HAS_STRING_VIEW
+#  undef MONOCYPHER_HAS_STRING_VIEW
     using string_ref = std::string_view;
-//    using string_ref = const std::string&;        // C++11 compatibility
+#else
+    using string_ref = const std::string&;
+#endif
 
     static inline const uint8_t* u8(const void *p)  {return reinterpret_cast<const uint8_t*>(p);}
     static inline uint8_t* u8(void *p)              {return reinterpret_cast<uint8_t*>(p);}
