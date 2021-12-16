@@ -283,6 +283,7 @@ namespace monocypher {
         /// The per-password "salt" input used to deter multi-password attacks.
         struct salt : public secret_byte_array<16> {
             salt() {::memset(data(), 0, sizeof(*this));}
+            salt(const char *str) { ::strncpy((char*)data(), str, sizeof(*this)); }
         };
 
         /// Generates an Argon2i hash from a password and a given salt value.
@@ -410,6 +411,9 @@ namespace monocypher {
 
             explicit key(string_ref k3y)
             :key(k3y.data(), k3y.size()) { }
+
+            /// Constructs a key from a hash derived from a password.
+            explicit key(const argon2i<32>::hash &hash) :secret_byte_array<32>(hash) { }
 
             /// Constructs a key from the shared secret created during key exchange.
             explicit key(const key_exchange::shared_secret &secret)
