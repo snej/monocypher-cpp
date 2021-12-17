@@ -92,6 +92,11 @@ namespace monocypher {
     template <size_t Size>
     class byte_array: public std::array<uint8_t, Size> {
     public:
+        explicit byte_array() { }
+        explicit byte_array(uint8_t b)                           {::memset(this->data(), b, Size);}
+        explicit byte_array(const std::array<uint8_t,Size> &a)   :std::array<uint8_t,Size>(a) { }
+        explicit byte_array(const void *bytes, size_t size)      {fillWith(bytes, size);}
+
         /// Fills the array with cryptographically-secure random bytes.
         /// \warning On platforms where `arc4random` is unavailable, this uses C++'s `std::random_device`.
         ///    The C++ standard says "random_device may be implemented in terms of an implementation-defined
@@ -138,7 +143,11 @@ namespace monocypher {
     template <size_t Size>
     class secret_byte_array: public byte_array<Size> {
     public:
-        ~secret_byte_array()                        {this->wipe();}
+        explicit secret_byte_array() { }
+        explicit secret_byte_array(uint8_t b)                           :byte_array<Size>(b) { }
+        explicit secret_byte_array(const std::array<uint8_t,Size> &a)   :byte_array<Size>(a) { }
+        explicit secret_byte_array(const void *p, size_t s)             :byte_array<Size>(p, s) { }
+        ~secret_byte_array()                                            {this->wipe();}
     };
 
 
@@ -171,6 +180,9 @@ namespace monocypher {
     template <class HashAlgorithm, size_t Size=64>
     class hash : public byte_array<Size> {
     public:
+        hash()                                           :byte_array<Size>(0) { }
+        explicit hash(const std::array<uint8_t,Size> &a) :byte_array<Size>(a) { }
+        hash(const void *data, size_t size)              :byte_array<Size>(data, size) { }
 
         /// Returns the Blake2b hash of a message.
         static hash create(const void *message, size_t message_size) noexcept {
@@ -278,12 +290,18 @@ namespace monocypher {
     template <size_t Size=64, uint32_t NBlocks = 100000, uint32_t NIterations = 3>
     struct argon2i {
         /// An Argon2i hash generated from a password.
-        struct hash : public secret_byte_array<Size> { };
+        struct hash : public secret_byte_array<Size> {
+            hash()                                           :secret_byte_array<Size>(0) { }
+            explicit hash(const std::array<uint8_t,Size> &a) :secret_byte_array<Size>(a) { }
+            hash(const void *data, size_t size)              :secret_byte_array<Size>(data, size) { }
+        };
 
         /// The per-password "salt" input used to deter multi-password attacks.
         struct salt : public secret_byte_array<16> {
-            salt() {::memset(data(), 0, sizeof(*this));}
-            salt(const char *str) { ::strncpy((char*)data(), str, sizeof(*this)); }
+            salt()                                           :secret_byte_array<16>(0) { }
+            explicit salt(const std::array<uint8_t,16> &a)   :secret_byte_array<16>(a) { }
+            salt(const void *data, size_t size)              :secret_byte_array<16>(data, size) { }
+            salt(const char *str)                 { ::strncpy((char*)data(), str, sizeof(*this)); }
         };
 
         /// Generates an Argon2i hash from a password and a given salt value.
@@ -336,7 +354,11 @@ namespace monocypher {
         struct secret_key : public secret_byte_array<32> { };
 
         /// A public key generated from the secret key, to be exchanged with the peer.
-        struct public_key : public byte_array<32> { };
+        struct public_key : public byte_array<32> {
+            public_key()                                           :byte_array<32>(0) { }
+            explicit public_key(const std::array<uint8_t,32> &a)   :byte_array<32>(a) { }
+            public_key(const void *data, size_t size)              :byte_array<32>(data, size) { }
+        };
 
         /// A secret value produced from both public keys, which will be the same for both parties.
         struct shared_secret : public secret_byte_array<32> { };
@@ -401,23 +423,10 @@ namespace monocypher {
 
         /// A session key for symmetric encryption/decryption.
         struct key : public secret_byte_array<32> {
-            /// Constructs a randomized session key.
-            key()                                       {randomize();}
-
-            /// Constructs a key containing the given bytes. `key_size` must be 32, i.e. `sizeof(key)`.
-            explicit key(const void *key_bytes, size_t key_size) {
-                fillWith(key_bytes, key_size);
-            }
-
-            explicit key(string_ref k3y)
-            :key(k3y.data(), k3y.size()) { }
-
-            /// Constructs a key from a hash derived from a password.
-            explicit key(const argon2i<32>::hash &hash) :secret_byte_array<32>(hash) { }
-
-            /// Constructs a key from the shared secret created during key exchange.
-            explicit key(const key_exchange::shared_secret &secret)
-                                                        :secret_byte_array<32>(secret) { }
+            key()                                           {randomize();}
+            explicit key(const std::array<uint8_t,32> &a)   :secret_byte_array<32>(a) { }
+            key(const void *data, size_t size)              :secret_byte_array<32>(data, size) { }
+            explicit key(string_ref k3y)                    :key(k3y.data(), k3y.size()) { }
 
             /// Encrypts `plain_text`, writing the result to `cipher_text` (which may be the same address.)
             /// Produces a `mac` that should be sent along with the ciphertext to authenticate it.
@@ -466,21 +475,20 @@ namespace monocypher {
 
     /// A digital signature. (For <Algorithm> use <EdDSA> or <Ed25519>.)
     template <class Algorithm>
-    struct signature : public byte_array<64> { };
+    struct signature : public byte_array<64> {
+        signature()                                           :byte_array<64>(0) { }
+        explicit signature(const std::array<uint8_t,64> &a)   :byte_array<64>(a) { }
+        signature(const void *data, size_t size)              :byte_array<64>(data, size) { }
+    };
 
 
     /// A public key for verifying signatures. (For <Algorithm> use <EdDSA> or <Ed25519>.)
     template <class Algorithm>
     struct public_key : public byte_array<32> {
-        public_key() { }
-
-        /// Constructs an instance given the key data. `key_size` must be 32, i.e. `sizeof(public_key)`.
-        explicit public_key(const void *key_bytes, size_t key_size) {
-            fillWith(key_bytes, key_size);
-        }
-
-        explicit public_key(string_ref key)
-        :public_key(key.data(), key.size()) { }
+        public_key()                                           :byte_array<32>(0) { }
+        explicit public_key(const std::array<uint8_t,32> &a)   :byte_array<32>(a) { }
+        public_key(const void *data, size_t size)              :byte_array<32>(data, size) { }
+        explicit public_key(string_ref k)                      :public_key(k.data(), k.size()) { }
 
         /// Verifies a signature.
         bool check(const signature<Algorithm> &sig, const void *msg, size_t msg_size) const {
@@ -503,17 +511,9 @@ namespace monocypher {
         using public_key = monocypher::public_key<Algorithm>;
         using signature = monocypher::signature<Algorithm>;
 
-        /// Constructs an instance given the key data. `key_size` must be 32, i.e. `sizeof(signing_key)`.
-        explicit signing_key(const void *key_bytes, size_t key_size) {
-            fillWith(key_bytes, key_size);
-        }
-
-        explicit signing_key(string_ref key)
-        :signing_key(key.data(), key.size()) { }
-
-        /// Constructs a signing_key from the shared secret created during key exchange.
-        explicit signing_key(const key_exchange::shared_secret &secret)
-        :secret_byte_array<32>(secret) { }
+        explicit signing_key(const std::array<uint8_t,32> &a) :secret_byte_array<32>(a) { }
+        signing_key(const void *data, size_t size)            :secret_byte_array<32>(data, size) { }
+        explicit signing_key(string_ref k)                    :signing_key(k.data(), k.size()) { }
 
         /// Creates a random secret key.
         static signing_key generate() {
@@ -582,6 +582,5 @@ namespace monocypher {
         using public_key  = monocypher::public_key<Ed25519>;
         using signing_key = monocypher::signing_key<Ed25519>;
     };
-
 
 }
