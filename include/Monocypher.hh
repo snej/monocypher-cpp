@@ -556,6 +556,48 @@ namespace monocypher {
     };
 
 
+    /// A `signing_key` together with its `public_key`.
+    /// Takes up more space, but is faster because the public key doesn't have to be derived.
+    template <class Algorithm>
+    struct key_pair {
+        using signing_key = monocypher::signing_key<Algorithm>;
+        using public_key = monocypher::public_key<Algorithm>;
+        using signature = monocypher::signature<Algorithm>;
+
+        /// Creates a random key-pair.
+        static key_pair generate() {
+            return key_pair(signing_key::generate());
+        }
+
+        explicit key_pair(const signing_key &sk,
+                          const public_key &pk)             :_signingKey(sk), _publicKey(pk) { }
+        explicit key_pair(const signing_key &sk)            :key_pair(sk, sk.get_public_key()) { }
+        explicit key_pair(const std::array<uint8_t,32> &sa) :key_pair(signing_key(sa)) { }
+        key_pair(const void *sk_data, size_t size)          :key_pair(signing_key(sk_data, size)) { }
+        explicit key_pair(string_ref sk_data)               :key_pair(signing_key(sk_data)) { }
+
+        /// Returns the signing key.
+        const signing_key& get_signing_key() const          {return _signingKey;}
+
+        /// Returns the public key.
+        const public_key& get_public_key() const            {return _publicKey;}
+
+        /// Signs a message.
+        signature sign(const void *message, size_t message_size) const {
+            return signing_key::sign(message, message_size, _publicKey);
+        }
+
+        /// Signs a message.
+        signature sign(string_ref message) const {
+            return sign(message.data(), message.size());
+        }
+
+    private:
+        signing_key _signingKey;
+        public_key  _publicKey;
+    };
+
+
     /// EdDSA with Curve25519 and Blake2b.
     /// (Use as `<Algorithm>` parameter to `signature`, `public_key`, `signing_key`.)
     struct EdDSA {
