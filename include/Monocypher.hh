@@ -32,27 +32,16 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
-#include "monocypher.h"
-#include "monocypher-ed25519.h"
+#define MONOCYPHER_CPP_NAMESPACE monocypher::c
+#include "../vendor/monocypher/src/monocypher.h"
 
 #include <array>
 #include <cstdlib>
 #include <cstring>
 #include <memory>  // for std::make_unique
+#include <string_view>
 #include <utility> // for std::pair
 #include <cassert>
-
-// Figure out whether std::string_view is available
-#ifdef __has_include
-#   if __has_include(<string_view>)
-#       include <string_view>
-#       define MONOCYPHER_HAS_STRING_VIEW
-#   endif
-#endif
-#ifndef MONOCYPHER_HAS_STRING_VIEW
-#include <string>
-#endif
-
 
 // On Apple platforms, `arc4random_buf()` is declared in <cstdlib>, above.
 // On Linux, it _may_ be in <bsd/stdlib.h> if the BSD compatibility lib is present.
@@ -74,15 +63,11 @@
 #endif
 
 namespace monocypher {
+    using namespace MONOCYPHER_CPP_NAMESPACE;
 
 //======== Utilities:
 
-#ifdef MONOCYPHER_HAS_STRING_VIEW
-#  undef MONOCYPHER_HAS_STRING_VIEW
     using string_ref = std::string_view;
-#else
-    using string_ref = const std::string&;
-#endif
 
     static inline const uint8_t* u8(const void *p)  {return reinterpret_cast<const uint8_t*>(p);}
     static inline uint8_t* u8(void *p)              {return reinterpret_cast<uint8_t*>(p);}
@@ -119,7 +104,7 @@ namespace monocypher {
 
         /// Securely fills the array with zeroes. Unlike a regular `memset` this cannot be optimized
         /// away even if the array is about to be destructed.
-        void wipe()                                 {::crypto_wipe(this->data(), Size);}
+        void wipe()                                 {crypto_wipe(this->data(), Size);}
 
         /// Idiomatic synonym for `wipe`.
         void clear()                                {this->wipe();}
@@ -161,13 +146,13 @@ namespace monocypher {
     }
 
     template<> inline bool operator== (const byte_array<16> &a, const byte_array<16> &b) {
-        return 0 == ::crypto_verify16(a.data(), b.data());
+        return 0 == crypto_verify16(a.data(), b.data());
     }
     template<> inline bool operator== (const byte_array<32> &a, const byte_array<32> &b) {
-        return 0 == ::crypto_verify32(a.data(), b.data());
+        return 0 == crypto_verify32(a.data(), b.data());
     }
     template<> inline bool operator== (const byte_array<64> &a, const byte_array<64> &b) {
-        return 0 == ::crypto_verify64(a.data(), b.data());
+        return 0 == crypto_verify64(a.data(), b.data());
     }
 
 
@@ -256,19 +241,19 @@ namespace monocypher {
 
     /// Blake2b algorithm; use as `<HashAlgorithm>` in the `hash` template.
     struct Blake2b {
-        using context = ::crypto_blake2b_ctx;
+        using context = crypto_blake2b_ctx;
 
         static void create_fn(uint8_t *hash, size_t hash_size,
                               const uint8_t *message, size_t message_size) {
-            ::crypto_blake2b_general(hash, hash_size, nullptr, 0, message, message_size);
+            crypto_blake2b_general(hash, hash_size, nullptr, 0, message, message_size);
         }
         static void init_fn(context *ctx, size_t hash_size) {
-            ::crypto_blake2b_general_init(ctx, hash_size, nullptr, 0);
+            crypto_blake2b_general_init(ctx, hash_size, nullptr, 0);
         }
-        static constexpr auto create_mac_fn = ::crypto_blake2b_general;
-        static constexpr auto init_mac_fn   = ::crypto_blake2b_general_init;
-        static constexpr auto update_fn     = ::crypto_blake2b_update;
-        static constexpr auto final_fn      = ::crypto_blake2b_final;
+        static constexpr auto create_mac_fn = crypto_blake2b_general;
+        static constexpr auto init_mac_fn   = crypto_blake2b_general_init;
+        static constexpr auto update_fn     = crypto_blake2b_update;
+        static constexpr auto final_fn      = crypto_blake2b_final;
     };
 
 
@@ -315,7 +300,7 @@ namespace monocypher {
             auto work_area = std::make_unique<uint8_t[]>(NBlocks * 1024);
             if (!work_area)
                 abort();  // exceptions must be disabled, but we cannot continue.
-            ::crypto_argon2i(result.data(), Size,
+            crypto_argon2i(result.data(), Size,
                              work_area.get(), NBlocks, NIterations,
                              u8(password), uint32_t(password_size),
                              s4lt.data(), sizeof(s4lt));
@@ -376,7 +361,7 @@ namespace monocypher {
         /// Returns the public key to send to the other party.
         public_key get_public_key() const {
             public_key pubkey;
-            ::crypto_key_exchange_public_key(pubkey.data(), _secret_key.data());
+            crypto_key_exchange_public_key(pubkey.data(), _secret_key.data());
             return pubkey;
         }
 
@@ -388,7 +373,7 @@ namespace monocypher {
         /// Given the other party's public key, computes the shared secret.
         shared_secret get_shared_secret(const public_key &their_public_key) const {
             shared_secret shared;
-            ::crypto_key_exchange(shared.data(), _secret_key.data(), their_public_key.data());
+            crypto_key_exchange(shared.data(), _secret_key.data(), their_public_key.data());
             return shared;
         }
 
@@ -434,7 +419,7 @@ namespace monocypher {
                      const void *plain_text, size_t text_size,
                      void *cipher_text) const {
                 mac out_mac;
-                ::crypto_lock(out_mac.data(), u8(cipher_text), this->data(), nonce.data(),
+                crypto_lock(out_mac.data(), u8(cipher_text), this->data(), nonce.data(),
                               u8(plain_text), text_size);
                 return out_mac;
             }
@@ -452,7 +437,7 @@ namespace monocypher {
                         const mac &mac,
                         const void *cipher_text, size_t text_size,
                         void *plain_text) const {
-                return 0 == ::crypto_unlock(u8(plain_text), this->data(), nonce.data(),
+                return 0 == crypto_unlock(u8(plain_text), this->data(), nonce.data(),
                                             mac.data(), u8(cipher_text), text_size);
             }
 
@@ -500,7 +485,7 @@ namespace monocypher {
         }
 
         bool operator== (const public_key<Algorithm> &b) const {
-            return 0 == ::crypto_verify32(this->data(), b.data());
+            return 0 == crypto_verify32(this->data(), b.data());
         }
     };
 
@@ -600,29 +585,17 @@ namespace monocypher {
 
     /// EdDSA with Curve25519 and Blake2b.
     /// (Use as `<Algorithm>` parameter to `signature`, `public_key`, `signing_key`.)
+    /// \note  This is not the same as the commonly-used Ed25519, which uses SHA-512.
+    ///        An `Ed25519` struct is declared in `Monocypher-ed25519.hh`.
     struct EdDSA {
-        static constexpr auto check_fn      = ::crypto_check;
-        static constexpr auto sign_fn       = ::crypto_sign;
-        static constexpr auto public_key_fn = ::crypto_sign_public_key;
+        static constexpr auto check_fn      = crypto_check;
+        static constexpr auto sign_fn       = crypto_sign;
+        static constexpr auto public_key_fn = crypto_sign_public_key;
 
         // Convenient type aliases for those who don't like angle brackets
         using signature   = monocypher::signature<EdDSA>;
         using public_key  = monocypher::public_key<EdDSA>;
         using signing_key = monocypher::signing_key<EdDSA>;
-    };
-
-    /// EdDSA with Curve25519 and SHA-512.
-    /// \note This algorithm is more widely used than `EdDSA`, but slower and brings in a bit more code.
-    /// (Use as `<Algorithm>` parameter to `signature`, `public_key`, `signing_key`.)
-    struct Ed25519 {
-        static constexpr auto check_fn      = ::crypto_ed25519_check;
-        static constexpr auto sign_fn       = ::crypto_ed25519_sign;
-        static constexpr auto public_key_fn = ::crypto_ed25519_public_key;
-
-        // Convenient type aliases for those who don't like angle brackets
-        using signature   = monocypher::signature<Ed25519>;
-        using public_key  = monocypher::public_key<Ed25519>;
-        using signing_key = monocypher::signing_key<Ed25519>;
     };
 
 }
