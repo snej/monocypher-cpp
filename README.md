@@ -11,16 +11,16 @@ This API here is:
 
 **Unofficial:** It's not part of Monocypher, but for convenience includes it as a Git submodule.
 
-**C++:** Requires C++14 or later.
+**C++:** Requires C++17 or later.
 
 **Header-only:** It consists only of the file `Monocypher.hh`. No extra source files to add to your build (besides the Monocypher C library of course.)
 
-**Idiomatic:**  Cryptographic entities are C++ classes, mostly subclasses of `std::array`. Options like byte-sizes and algorithms are template parameters. Operations are methods.
+**Idiomatic:**  Cryptographic entities are C++ classes, mostly subclasses of `std::array`. Options like key sizes and algorithms are template parameters. Operations are methods.
 
 **Safe:** Strong typing makes the API safer. For example, you can't accidentally pass a Diffie-Hellman public key (`monocypher::key_exchange::public_key`) to a function expecting an Ed25519 public key (`monocypher::public_key`).
 Moreover, objects are zeroed out when destructed, to avoid leaving secrets in memory, and the `==` and `!=` operators use constant-time comparisons instead of regular memcmp, to avoid timing attacks.
 
-**Immature:** There had to be a downside :) This API is very new (as of October 2020), is only partly tested, and has not yet been used much. However, it's just a very thin wrapper around Monocypher 3.1.1, which is well-tested and audited.
+**Immature:** There had to be a downside :) This API is fairly new, only partly tested, and has not yet been used much. However, it's just a very thin wrapper around Monocypher 3.1.2, which is well-tested and audited.
 
 ## Using it
 

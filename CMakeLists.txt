@@ -12,7 +12,7 @@ include_directories(
     "vendor/monocypher/src"
     "vendor/monocypher/src/optional")
 
-set_property(TARGET tests  PROPERTY CXX_STANDARD 14)
+set_property(TARGET tests  PROPERTY CXX_STANDARD 17)
 
 install(TARGETS tests)
 
