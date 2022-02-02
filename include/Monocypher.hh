@@ -65,6 +65,10 @@
 namespace monocypher {
     using namespace MONOCYPHER_CPP_NAMESPACE;
 
+    template <class Algorithm> struct public_key;    // (forward reference)
+    template <class Algorithm> struct signing_key;   // (forward reference)
+
+
 //======== Utilities:
 
     using string_ref = std::string_view;
@@ -148,6 +152,9 @@ namespace monocypher {
     template<> inline bool operator== (const byte_array<16> &a, const byte_array<16> &b) {
         return 0 == crypto_verify16(a.data(), b.data());
     }
+    template<> inline bool operator== (const byte_array<24> &a, const byte_array<24> &b) {
+        return 0 == crypto_verify16(a.data(), b.data()) && 0 == crypto_verify16(&a[8], &b[8]);
+    }
     template<> inline bool operator== (const byte_array<32> &a, const byte_array<32> &b) {
         return 0 == crypto_verify32(a.data(), b.data());
     }
@@ -227,6 +234,7 @@ namespace monocypher {
             }
 
             /// Returns the final Blake2b hash of all the data passed to `update`.
+            [[nodiscard]]
             hash final() {
                 hash result;
                 HashAlgorithm::final_fn(&_ctx, result.data());
@@ -332,7 +340,24 @@ namespace monocypher {
 //======== Key Exchange
 
 
-    /// Performs a Diffie-Hellman key exchange with another party, using X25519 and HChaCha20.
+    /// Default `Algorithm` template parameter for `key_exchange`.
+    struct X25519_HChaCha20 {
+        static constexpr auto get_public_key_fn = crypto_key_exchange_public_key;
+        static constexpr auto key_exchange_fn   = crypto_key_exchange;
+    };
+
+    /// Raw Curve25519 key exchange algorithm for `key_exchange`; use only if you know what
+    /// you're doing!
+    /// @warning Shared secrets are not quite random. Hash them to derive an actual shared key.
+    struct X25519_Raw {
+        static constexpr auto get_public_key_fn = crypto_x25519_public_key;
+        static constexpr auto key_exchange_fn   = crypto_x25519;
+    };
+
+
+    /// Performs a Diffie-Hellman key exchange with another party, combining your secret key with
+    /// the other's public key to create a shared secret known to both of you.
+    template <class Algorithm = X25519_HChaCha20>
     class key_exchange {
     public:
         /// A secret key for key exchange.
@@ -343,9 +368,18 @@ namespace monocypher {
             public_key()                                           :byte_array<32>(0) { }
             explicit public_key(const std::array<uint8_t,32> &a)   :byte_array<32>(a) { }
             public_key(const void *data, size_t size)              :byte_array<32>(data, size) { }
+
+            /// Converts a signing public key to a key-exchange public key.
+            /// Internally this converts the EdDSA or Ed25519 key to its Curve25519 equivalent.
+            /// @warning "It is generally considered poor form to reuse the same key for different
+            ///     purposes. While this conversion is technically safe, avoid these functions
+            ///     nonetheless unless you are particularly resource-constrained or have some other
+            ///     kind of hard requirement. It is otherwise an unnecessary risk factor."
+            template <class SigningAlgorithm>
+            explicit public_key(const monocypher::public_key<SigningAlgorithm>&);
         };
 
-        /// A secret value produced from both public keys, which will be the same for both parties.
+        /// A secret value derived from two parties' keys, which will be the same for both.
         struct shared_secret : public secret_byte_array<32> { };
 
 
@@ -358,10 +392,19 @@ namespace monocypher {
         explicit key_exchange(const secret_key &key)
         :_secret_key(key) { }
 
+        /// Initializes a key exchange, using an existing signing key-pair.
+        /// Internally this converts the EdDSA or Ed25519 signing key to its Curve25519 equivalent.
+        /// @warning "It is generally considered poor form to reuse the same key for different
+        ///     purposes. While this conversion is technically safe, avoid these functions
+        ///     nonetheless unless you are particularly resource-constrained or have some other
+        ///     kind of hard requirement. It is otherwise an unnecessary risk factor."
+        template <class SigningAlgorithm>
+        explicit key_exchange(const signing_key<SigningAlgorithm>&);
+
         /// Returns the public key to send to the other party.
         public_key get_public_key() const {
             public_key pubkey;
-            crypto_key_exchange_public_key(pubkey.data(), _secret_key.data());
+            Algorithm::get_public_key_fn(pubkey.data(), _secret_key.data());
             return pubkey;
         }
 
@@ -373,7 +416,7 @@ namespace monocypher {
         /// Given the other party's public key, computes the shared secret.
         shared_secret get_shared_secret(const public_key &their_public_key) const {
             shared_secret shared;
-            crypto_key_exchange(shared.data(), _secret_key.data(), their_public_key.data());
+            Algorithm::key_exchange_fn(shared.data(), _secret_key.data(), their_public_key.data());
             return shared;
         }
 
@@ -388,33 +431,58 @@ namespace monocypher {
     namespace session {
 
         /// A one-time-use value to be sent along with an encrypted message.
-        /// A nonce value should never be used more than once with any one session key!
+        /// @warning A nonce value should never be used more than once with any one session key!
         struct nonce : public byte_array<24> {
             /// Constructs a randomized nonce.
             nonce() {randomize();}
 
             /// Constructs a nonce containing the number `n` in little-endian encoding.
+            /// @note Only 64 bits are set; the last 128 bits of the nonce are set to 0.
             explicit nonce(uint64_t n) {
                 for (size_t i = 0; i < 24; ++i, n >>= 8)
                     (*this)[i] = uint8_t(n & 0xFF);
+            }
+
+            nonce& operator= (uint64_t n) {*this = nonce(n); return *this;}
+
+            /// Convenience function to increment a nonce (interpreted as 192-bit little-endian.)
+            nonce& operator++ () {
+                for (size_t i = 0; i < 24; ++i) {
+                    if (++(*this)[i] != 0)
+                        break;
+                }
+                return *this;
             }
         };
 
 
         /// A Message Authentication Code, to be sent along with an encrypted message.
-        /// (This is like a signature, but can only be verified by someone who knows the session key.)
+        /// (Like a signature, but can only be verified by someone who knows the session key.)
         struct mac : public byte_array<16> { };
 
 
-        /// A session key for symmetric encryption/decryption.
+        /// A session key for _symmetric_ encryption/decryption -- both sides must use the same key.
+        /// Consider using the shared secret produced by `key_exchange` as the key.
         struct key : public secret_byte_array<32> {
             key()                                           {randomize();}
             explicit key(const std::array<uint8_t,32> &a)   :secret_byte_array<32>(a) { }
             key(const void *data, size_t size)              :secret_byte_array<32>(data, size) { }
             explicit key(string_ref k3y)                    :key(k3y.data(), k3y.size()) { }
 
-            /// Encrypts `plain_text`, writing the result to `cipher_text` (which may be the same address.)
-            /// Produces a `mac` that should be sent along with the ciphertext to authenticate it.
+            /// Encrypts `plain_text`, writing the result to `cipher_text` and producing a `mac`.
+            /// The MAC _must_ be sent along with the ciphertext.
+            ///
+            /// The nonce used must be known to the recipient; you can send it too, or you can use
+            /// a protocol that ensures both parties start with the same nonce and keep them in
+            /// sync, e.g. by incrementing.
+            /// Just remember that you must **never reuse a nonce** with the same key!
+            /// @param nonce  One-time value that must never have been used with this key before.
+            /// @param plain_text  The input data to be encrypted.
+            /// @param text_size  The length in bytes of the input data.
+            /// @param cipher_text  Where to write the encrypted output; will be the same size as
+            ///                     the input. It's OK to pass the same address as `plain_text`.
+            /// @return  The Message Authentication Code. Must be sent along with the ciphertext.
+            [[nodiscard]]
             mac lock(const nonce &nonce,
                      const void *plain_text, size_t text_size,
                      void *cipher_text) const {
@@ -424,6 +492,7 @@ namespace monocypher {
                 return out_mac;
             }
 
+            [[nodiscard]]
             mac lock(const nonce &nonce,
                      string_ref plain_text,
                      void *cipher_text) const {
@@ -431,16 +500,24 @@ namespace monocypher {
             }
 
             /// Authenticates `cipher_text` using the `mac`, then decrypts it, writing the result to
-            ///  `plain_text` (which may be the same address.)
-            /// Returns false if the authentication fails.
+            /// `plain_text` (which may be the same address.)
+            /// @param nonce  The same nonce value used by the `lock` call.
+            /// @param mac  The Message Authentication Code produced by the `lock` call.
+            /// @param cipher_text  The input encrypted data.
+            /// @param text_size  The length in bytes of the input data.
+            /// @param plain_text  Where to write the decrypted output; will be the same size as the
+            ///                    input. It's OK to pass the same address as `cipher_text`.
+            /// @return  True on success, false if the data has been altered or corrupted.
+            [[nodiscard]]
             bool unlock(const nonce &nonce,
                         const mac &mac,
                         const void *cipher_text, size_t text_size,
                         void *plain_text) const {
                 return 0 == crypto_unlock(u8(plain_text), this->data(), nonce.data(),
-                                            mac.data(), u8(cipher_text), text_size);
+                                          mac.data(), u8(cipher_text), text_size);
             }
 
+            [[nodiscard]]
             bool unlock(const nonce &nonce,
                         const mac &mac,
                         string_ref cipher_text,
@@ -453,9 +530,6 @@ namespace monocypher {
 
 
 //======== Signatures
-
-
-    template <class Algorithm> struct signing_key;   // (forward reference)
 
 
     /// A digital signature. (For <Algorithm> use <EdDSA> or <Ed25519>.)
@@ -476,16 +550,26 @@ namespace monocypher {
         explicit public_key(string_ref k)                      :public_key(k.data(), k.size()) { }
 
         /// Verifies a signature.
+        [[nodiscard]]
         bool check(const signature<Algorithm> &sig, const void *msg, size_t msg_size) const {
             return 0 == Algorithm::check_fn(sig.data(), this->data(), u8(msg), msg_size);
         }
 
+        [[nodiscard]]
         bool check(const signature<Algorithm> &sig, string_ref msg) const {
             return check(sig, msg.data(), msg.size());
         }
 
-        bool operator== (const public_key<Algorithm> &b) const {
-            return 0 == crypto_verify32(this->data(), b.data());
+        /// Converts a public signature-verification key to a Curve25519 public key,
+        /// for key exchange or encryption.
+        /// @warning "It is generally considered poor form to reuse the same key for different
+        ///     purposes. While this conversion is technically safe, avoid these functions
+        ///     nonetheless unless you are particularly resource-constrained or have some other
+        ///     kind of hard requirement. It is otherwise an unnecessary risk factor."
+        explicit operator key_exchange<X25519_HChaCha20>::public_key() const {
+            key_exchange<X25519_HChaCha20>::public_key pk;
+            Algorithm::public_to_kx_fn(pk.data(), this->data());
+            return pk;
         }
     };
 
@@ -513,6 +597,7 @@ namespace monocypher {
         }
 
         /// Signs a message. (Passing in the public key speeds up the computation.)
+        [[nodiscard]]
         signature sign(const void *message, size_t message_size,
                        const public_key &pubKey) const {
             signature sig;
@@ -520,18 +605,24 @@ namespace monocypher {
             return sig;
         }
 
+        /// Signs a message. (Passing in the public key speeds up the computation.)
+        [[nodiscard]]
         signature sign(string_ref message, const public_key &pubKey) const {
             return sign(message.data(), message.size(), pubKey);
         }
 
         /// Signs a message.
-        /// (This is a bit slower than the version that takes the public key, because it has to recompute it.)
+        /// @note This has to first recompute the public key, which makes it a bit slower.
+        [[nodiscard]]
         signature sign(const void *message, size_t message_size) const {
             signature sig;
             Algorithm::sign_fn(sig.data(), this->data(), nullptr, u8(message), message_size);
             return sig;
         }
 
+        /// Signs a message.
+        /// @note This has to first recompute the public key, which makes it a bit slower.
+        [[nodiscard]]
         signature sign(string_ref message) const {
             return sign(message.data(), message.size());
         }
@@ -549,7 +640,7 @@ namespace monocypher {
         using public_key = monocypher::public_key<Algorithm>;
         using signature = monocypher::signature<Algorithm>;
 
-        /// Creates a random key-pair.
+        /// Creates a new key-pair at random.
         static key_pair generate() {
             return key_pair(signing_key::generate());
         }
@@ -568,14 +659,14 @@ namespace monocypher {
         const public_key& get_public_key() const            {return _publicKey;}
 
         /// Signs a message.
+        [[nodiscard]]
         signature sign(const void *message, size_t message_size) const {
             return signing_key::sign(message, message_size, _publicKey);
         }
 
         /// Signs a message.
-        signature sign(string_ref message) const {
-            return sign(message.data(), message.size());
-        }
+        [[nodiscard]]
+        signature sign(string_ref msg) const                  {return sign(msg.data(), msg.size());}
 
     private:
         signing_key _signingKey;
@@ -588,14 +679,34 @@ namespace monocypher {
     /// \note  This is not the same as the commonly-used Ed25519, which uses SHA-512.
     ///        An `Ed25519` struct is declared in `Monocypher-ed25519.hh`.
     struct EdDSA {
-        static constexpr auto check_fn      = crypto_check;
-        static constexpr auto sign_fn       = crypto_sign;
-        static constexpr auto public_key_fn = crypto_sign_public_key;
+        static constexpr auto check_fn         = crypto_check;
+        static constexpr auto sign_fn          = crypto_sign;
+        static constexpr auto public_key_fn    = crypto_sign_public_key;
+        static constexpr auto public_to_kx_fn  = crypto_from_eddsa_public;
+        static constexpr auto private_to_kx_fn = crypto_from_eddsa_private;
 
         // Convenient type aliases for those who don't like angle brackets
         using signature   = monocypher::signature<EdDSA>;
         using public_key  = monocypher::public_key<EdDSA>;
         using signing_key = monocypher::signing_key<EdDSA>;
+        using key_pair    = monocypher::key_pair<EdDSA>;
     };
+
+
+
+
+    // Forward-declared template functions:
+
+    template <class A>
+    template <class SA>
+    key_exchange<A>::key_exchange(const monocypher::signing_key<SA> &signingKey) {
+        SA::private_to_kx_fn(_secret_key.data(), signingKey.data());
+    }
+
+    template <class A>
+    template <class SA>
+    key_exchange<A>::public_key::public_key(const monocypher::public_key<SA> &publicKey) {
+        SA::public_to_kx_fn(this->data(), publicKey.data());
+    }
 
 }

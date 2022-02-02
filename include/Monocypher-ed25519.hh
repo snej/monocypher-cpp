@@ -14,14 +14,17 @@ namespace monocypher {
     /// \note This algorithm is more widely used than `EdDSA`, but slower and brings in a bit more code.
     /// (Use as `<Algorithm>` parameter to `signature`, `public_key`, `signing_key`.)
     struct Ed25519 {
-        static constexpr auto check_fn      = crypto_ed25519_check;
-        static constexpr auto sign_fn       = crypto_ed25519_sign;
-        static constexpr auto public_key_fn = crypto_ed25519_public_key;
+        static constexpr auto check_fn         = crypto_ed25519_check;
+        static constexpr auto sign_fn          = crypto_ed25519_sign;
+        static constexpr auto public_key_fn    = crypto_ed25519_public_key;
+        static constexpr auto public_to_kx_fn  = crypto_from_ed25519_public;
+        static constexpr auto private_to_kx_fn = crypto_from_ed25519_private;
 
         // Convenient type aliases for those who don't like angle brackets
         using signature   = monocypher::signature<Ed25519>;
         using public_key  = monocypher::public_key<Ed25519>;
         using signing_key = monocypher::signing_key<Ed25519>;
+        using key_pair    = monocypher::key_pair<Ed25519>;
     };
 
 }

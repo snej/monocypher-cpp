@@ -120,6 +120,24 @@ static void test_key_exchange() {
 }
 
 
+static void test_key_exchange_raw() {
+    cout << "--- test_key_exchange_raw ---\n";
+    key_exchange<X25519_Raw> kx1, kx2;
+
+    auto pk1 = kx1.get_public_key();
+    auto pk2 = kx2.get_public_key();
+    cout << "public key 1 = " << hexString(pk1) << "\n";
+    cout << "public key 2 = " << hexString(pk2) << "\n";
+
+    auto secret1 = kx1.get_shared_secret(pk2);
+    auto secret2 = kx2.get_shared_secret(pk1);
+    cout << "shared secret 1 = " << hexString(secret1) << "\n";
+    cout << "shared secret 2 = " << hexString(secret2) << "\n";
+    assert(secret1 == secret2);
+    cout << "✔︎ Key exchange passed\n\n";
+}
+
+
 static void test_encryption() {
     cout << "--- test_encryption ---\n";
     const string message = "ATTACK AT DAWN";
@@ -141,10 +159,15 @@ static void test_encryption() {
     assert(plaintextStr == message);
 
     // Test integer nonce:
-    session::nonce intNonce(0x1234567890);
-    auto nonceStr = hexString(intNonce);
+    nonce = 0x12345678FF;
+    auto nonceStr = hexString(nonce);
     cout << "Integer Nonce = " << nonceStr << "\n";
-    assert(nonceStr == "90785634 12000000 00000000 00000000 00000000 00000000");
+    assert(nonceStr == "FF785634 12000000 00000000 00000000 00000000 00000000");
+    // Increment it:
+    ++nonce;
+    nonceStr = hexString(nonce);
+    cout << "Incr'd Nonce  = " << nonceStr << "\n";
+    assert(nonceStr == "00795634 12000000 00000000 00000000 00000000 00000000");
     cout << "✔︎ Encryption passed\n\n";
 }
 
@@ -172,14 +195,44 @@ static void test_signatures() {
 }
 
 
+static void test_signatures_to_kx() {
+    cout << "--- test_signatures_to_kx ---\n";
+    auto keyPair1 = EdDSA::key_pair::generate();
+    auto keyPair2 = EdDSA::key_pair::generate();
+
+    // Convert the signing key-pairs to key-exchange key-pairs:
+    key_exchange kx1(keyPair1.get_signing_key());
+    key_exchange kx2(keyPair2.get_signing_key());
+
+    // Check that we can derive KX public keys from signing public keys:
+    auto pk1 = kx1.get_public_key();
+    auto pk2 = kx2.get_public_key();
+
+    assert(pk1 == key_exchange<X25519_HChaCha20>::public_key(keyPair1.get_public_key()));
+    assert(pk2 == key_exchange<X25519_HChaCha20>::public_key(keyPair2.get_public_key()));
+    cout << "✔︎ KX public keys derived from signing public keys are correct.\n";
+
+    // Generate the shared secrets:
+    auto secret1 = kx1.get_shared_secret(pk2);
+    auto secret2 = kx2.get_shared_secret(pk1);
+    cout << "shared secret 1 = " << hexString(secret1) << "\n";
+    cout << "shared secret 2 = " << hexString(secret2) << "\n";
+    assert(secret1 == secret2);
+    cout << "✔︎ shared secrets match.\n";
+    cout << "✔︎ Key exchange passed\n\n";
+}
+
+
 int main(int argc, const char * argv[]) {
     cout << "Testing Monocypher-C++ wrapper...\n\n";
     test_randomize();
     test_blake2b();
     test_argon2i();
     test_key_exchange();
+    test_key_exchange_raw();
     test_encryption();
     test_signatures();
+    test_signatures_to_kx();
     cout << "✔︎✔︎✔︎ ALL C++ WRAPPER TESTS PASSED ✔︎✔︎✔︎ (but this is not a full test of Monocypher itself)\n";
     return 0;
 }
