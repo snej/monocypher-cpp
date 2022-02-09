@@ -5,6 +5,8 @@ project(MonocypherCppTest)
 add_executable( tests
     src/Monocypher.cc
     src/Monocypher-ed25519.cc
+    src/Monocypher+sha256.cc
+    src/Monocypher+xsalsa20.cc
     test/tests.cc
 )
 
