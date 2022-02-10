@@ -7,6 +7,7 @@
 
 #pragma once
 #include "Monocypher.hh"
+#include "Monocypher-ed25519.hh"
 #include <cstdio>
 #include <string>
 
