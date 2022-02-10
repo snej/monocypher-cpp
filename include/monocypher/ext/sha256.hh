@@ -1,5 +1,10 @@
 //
-// Monocypher+sha256.hh
+//  monocypher/ext/sha256.hh
+//
+//  Unofficial idiomatic C++17 wrapper for Monocypher
+//  <https://monocypher.org>
+//
+//  Copyright (c) 2022 Jens Alfke. All rights reserved.
 //
 // --- Standard 2-clause BSD licence follows ---
 // Redistribution and use in source and binary forms, with or without
@@ -27,14 +32,14 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
-#include "Monocypher.hh"
+#include "../hash.hh"
 
 namespace monocypher::ext {
 
     /// SHA-256 algorithm, for use as the template parameter to `hash`.
     ///
     /// @note This functionality is NOT part of Monocypher itself. It's provided for compatibility.
-    /// The implementation is Brad Conte, from <https://github.com/B-Con/crypto-algorithms>
+    /// The implementation is Brad Conte, from <https://github.com/B-Con/crypto-algorithms>.
     struct SHA256 {
         static constexpr const char* name = "SHA-256";
         static constexpr size_t hash_size = 256 / 8;

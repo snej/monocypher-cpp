@@ -1,5 +1,10 @@
 //
-// Monocypher-ed25519.hh
+//  monocypher/ext/ed25519.hh
+//
+//  Unofficial idiomatic C++17 wrapper for Monocypher
+//  <https://monocypher.org>
+//
+//  Copyright (c) 2022 Jens Alfke. All rights reserved.
 //
 // --- Standard 2-clause BSD licence follows ---
 // Redistribution and use in source and binary forms, with or without
@@ -27,8 +32,9 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
-#include "Monocypher.hh"
-#include "../vendor/monocypher/src/optional/monocypher-ed25519.h"
+#include "../hash.hh"
+#include "../signatures.hh"
+#include "../../../vendor/monocypher/src/optional/monocypher-ed25519.h"
 
 namespace monocypher {
 

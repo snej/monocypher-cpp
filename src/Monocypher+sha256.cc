@@ -28,7 +28,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "Monocypher+sha256.hh"
+#include "monocypher/ext/sha256.hh"
 
 // Wrap 3rd party sha256.c in a namespace to avoid messing with global namespace:
 namespace monocypher::b_con {

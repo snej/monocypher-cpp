@@ -1,5 +1,10 @@
 //
-// Monocypher+xsalsa20.hh
+//  monocypher/ext/.hh
+//
+//  Unofficial idiomatic C++17 wrapper for Monocypher
+//  <https://monocypher.org>
+//
+//  Copyright (c) 2022 Jens Alfke. All rights reserved.
 //
 // --- Standard 2-clause BSD licence follows ---
 // Redistribution and use in source and binary forms, with or without
@@ -27,16 +32,16 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
-#include "Monocypher.hh"
+#include "../encryption.hh"
 
 namespace monocypher::ext {
 
-    /// Alternative algorithm for session::encryption_key --
+    /// Alternative algorithm for `session::encryption_key` --
     /// XSalsa20 encryption (instead of XChaCha20) and Poly1305 authentication.
     /// This is compatible with libSodium and NaCl.
     ///
     /// @note This functionality is NOT part of Monocypher itself. It's provided for compatibility.
-    /// The implementation is from TweetNaCl, by Daniel J. Bernstein et al.
+    /// The implementation is from tweetnacl, by Daniel J. Bernstein et al.
     /// <https://tweetnacl.cr.yp.to>
     struct XSalsa20_Poly1305 {
         static constexpr const char* name = "XSalsa20+Poly1305";
