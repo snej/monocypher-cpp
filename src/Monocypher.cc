@@ -45,4 +45,37 @@ namespace monocypher {
 #endif
     }
 
+
+    bool constant_time_compare(const void *xa, const void *xb, size_t size) {
+        auto a = (const uint8_t*)xa, b = (const uint8_t*)xb;
+        size_t i = 0;
+        while (i + 64 <= size) {
+            if (0 != crypto_verify64(a+i, b+i))
+                return false;
+            i += 64;
+        }
+        while (i + 32 <= size) {
+            if (0 != crypto_verify32(a+i, b+i))
+                return false;
+            i += 32;
+        }
+        while (i + 16 <= size) {
+            if (0 != crypto_verify16(a+i, b+i))
+                return false;
+            i += 16;
+        }
+        if (i < size) {
+            if (size >= 16) {
+                // Handle any remaining bytes by comparing the _last_ 16 bytes:
+                return 0 == crypto_verify16(a + size - 16, b + size - 16);
+            } else {
+                // Kludge to handle size less than 16:
+                uint8_t buf1[16] = {}, buf2[16] = {};
+                memcpy(buf1, a, size);
+                memcpy(buf2, b, size);
+                return 0 == crypto_verify16(buf1, buf2);
+            }
+        }
+        return true;
+    }
 }

@@ -58,6 +58,14 @@ namespace monocypher {
     ///    some other source of randomization.
     void randomize(void *dst, size_t size);
 
+    /// Securely fills memory with zeroes.
+    /// Unlike a regular `memset` this cannot be optimized away by the compiler.
+    static inline void wipe(void *dst, size_t size)             {c::crypto_wipe(dst, size);}
+
+    /// Constant-time memory comparison, used to avoid timing attacks.
+    /// @note  This returns `bool`, not `int` like `memcmp` or `crypto_verify`!
+    bool constant_time_compare(const void *a, const void *b, size_t size);
+
 
     /// General-purpose byte array. Used for hashes, nonces, MACs, etc.
     template <size_t Size>
@@ -138,9 +146,13 @@ namespace monocypher {
     };
 
 
+
     // byte_arrays use constant-time comparison.
     template <size_t Size>
-    static inline bool operator== (const byte_array<Size> &a, const byte_array<Size> &b);
+    static inline bool operator== (const byte_array<Size> &a, const byte_array<Size> &b) {
+        static_assert(Size % 16 == 0);
+        return constant_time_compare(a.data(), b.data(), Size);
+    }
 
     template <size_t Size>
     static inline bool operator!= (const byte_array<Size> &a, const byte_array<Size> &b) {
@@ -160,7 +172,6 @@ namespace monocypher {
     template<> inline bool operator== (const byte_array<64> &a, const byte_array<64> &b) {
         return 0 == c::crypto_verify64(a.data(), b.data());
     }
-    //TODO: Implement for other sizes
 
 
     /// Variable-length data input to a function. Implicit conversion from string and array.
