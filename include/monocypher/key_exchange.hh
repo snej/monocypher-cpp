@@ -134,4 +134,10 @@ namespace monocypher {
     };
 
 
+    // Overloaded `*` for Curve25519 scalar multiplication:
+    static inline key_exchange<X25519_Raw>::shared_secret
+    operator* (key_exchange<X25519_Raw> const& k, key_exchange<X25519_Raw>::public_key const& pk) {
+        return k.get_shared_secret(pk);
+    }
+
 }
