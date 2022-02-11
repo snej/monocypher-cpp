@@ -43,7 +43,6 @@
 #include <cassert>
 
 namespace monocypher {
-    using namespace MONOCYPHER_CPP_NAMESPACE;
 
 //======== Utilities:
 
@@ -75,7 +74,7 @@ namespace monocypher {
 
         /// Securely fills the array with zeroes. Unlike a regular `memset` this cannot be optimized
         /// away even if the array is about to be destructed.
-        void wipe()                                 {crypto_wipe(this->data(), Size);}
+        void wipe()                                 {c::crypto_wipe(this->data(), Size);}
 
         /// Idiomatic synonym for `wipe`.
         void clear()                                {this->wipe();}
@@ -148,17 +147,18 @@ namespace monocypher {
         return !(a == b);
     }
 
+    // specialized comparisons for common sizes
     template<> inline bool operator== (const byte_array<16> &a, const byte_array<16> &b) {
-        return 0 == crypto_verify16(a.data(), b.data());
+        return 0 == c::crypto_verify16(a.data(), b.data());
     }
     template<> inline bool operator== (const byte_array<24> &a, const byte_array<24> &b) {
-        return 0 == crypto_verify16(a.data(), b.data()) && 0 == crypto_verify16(&a[8], &b[8]);
+        return 0 == c::crypto_verify16(a.data(), b.data()) && 0 == c::crypto_verify16(&a[8], &b[8]);
     }
     template<> inline bool operator== (const byte_array<32> &a, const byte_array<32> &b) {
-        return 0 == crypto_verify32(a.data(), b.data());
+        return 0 == c::crypto_verify32(a.data(), b.data());
     }
     template<> inline bool operator== (const byte_array<64> &a, const byte_array<64> &b) {
-        return 0 == crypto_verify64(a.data(), b.data());
+        return 0 == c::crypto_verify64(a.data(), b.data());
     }
     //TODO: Implement for other sizes
 

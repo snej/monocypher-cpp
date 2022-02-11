@@ -6,13 +6,17 @@
 //
 
 #include "tests.hh"
-#include "Monocypher+sha256.hh"
-#include "Monocypher+xsalsa20.hh"
+#include "Monocypher.hh"
+#include "monocypher/ext/ed25519.hh"
+#include "monocypher/ext/sha256.hh"
+#include "monocypher/ext/xsalsa20.hh"
 #include <iostream>
 #include <tuple>    // for `tie`
 
 
 // These are some incomplete tests of the Monocypher.hh C++ API.
+
+using namespace monocypher;
 
 
 static void test_randomize() {

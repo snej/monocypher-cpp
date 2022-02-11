@@ -72,10 +72,10 @@ namespace monocypher {
             auto work_area = std::make_unique<uint8_t[]>(NBlocks * 1024);
             if (!work_area)
                 abort();  // exceptions must be disabled, but we cannot continue.
-            crypto_argon2i(result.data(), Size,
-                             work_area.get(), NBlocks, NIterations,
-                             u8(password), uint32_t(password_size),
-                             s4lt.data(), sizeof(s4lt));
+            c::crypto_argon2i(result.data(), Size,
+                              work_area.get(), NBlocks, NIterations,
+                              u8(password), uint32_t(password_size),
+                              s4lt.data(), sizeof(s4lt));
             return result;
         }
 

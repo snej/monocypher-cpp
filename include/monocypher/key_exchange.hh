@@ -45,8 +45,8 @@ namespace monocypher {
     /// Default `Algorithm` template parameter for `key_exchange`.
     struct X25519_HChaCha20 {
         static constexpr const char* name = "X25519+HChaCha20";
-        static constexpr auto get_public_key_fn = crypto_key_exchange_public_key;
-        static constexpr auto key_exchange_fn   = crypto_key_exchange;
+        static constexpr auto get_public_key_fn = c::crypto_key_exchange_public_key;
+        static constexpr auto key_exchange_fn   = c::crypto_key_exchange;
     };
 
     /// Raw Curve25519 key exchange algorithm for `key_exchange`; use only if you know what
@@ -54,8 +54,8 @@ namespace monocypher {
     /// @warning Shared secrets are not quite random. Hash them to derive an actual shared key.
     struct X25519_Raw {
         static constexpr const char* name = "X25519";
-        static constexpr auto get_public_key_fn = crypto_x25519_public_key;
-        static constexpr auto key_exchange_fn   = crypto_x25519;
+        static constexpr auto get_public_key_fn = c::crypto_x25519_public_key;
+        static constexpr auto key_exchange_fn   = c::crypto_x25519;
     };
 
 

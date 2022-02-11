@@ -198,11 +198,11 @@ namespace monocypher {
     ///        An `Ed25519` struct is declared in `Monocypher-ed25519.hh`.
     struct EdDSA {
         static constexpr const char* name      = "EdDSA";
-        static constexpr auto check_fn         = crypto_check;
-        static constexpr auto sign_fn          = crypto_sign;
-        static constexpr auto public_key_fn    = crypto_sign_public_key;
-        static constexpr auto public_to_kx_fn  = crypto_from_eddsa_public;
-        static constexpr auto private_to_kx_fn = crypto_from_eddsa_private;
+        static constexpr auto check_fn         = c::crypto_check;
+        static constexpr auto sign_fn          = c::crypto_sign;
+        static constexpr auto public_key_fn    = c::crypto_sign_public_key;
+        static constexpr auto public_to_kx_fn  = c::crypto_from_eddsa_public;
+        static constexpr auto private_to_kx_fn = c::crypto_from_eddsa_private;
 
         // Convenient type aliases for those who don't like angle brackets
         using signature   = monocypher::signature<EdDSA>;

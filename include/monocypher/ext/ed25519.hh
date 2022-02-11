@@ -46,11 +46,11 @@ namespace monocypher {
     /// (Use as `<Algorithm>` parameter to `signature`, `public_key`, `signing_key`.)
     struct Ed25519 {
         static constexpr const char* name = "Ed25519";
-        static constexpr auto check_fn         = crypto_ed25519_check;
-        static constexpr auto sign_fn          = crypto_ed25519_sign;
-        static constexpr auto public_key_fn    = crypto_ed25519_public_key;
-        static constexpr auto public_to_kx_fn  = crypto_from_ed25519_public;
-        static constexpr auto private_to_kx_fn = crypto_from_ed25519_private;
+        static constexpr auto check_fn         = c::crypto_ed25519_check;
+        static constexpr auto sign_fn          = c::crypto_ed25519_sign;
+        static constexpr auto public_key_fn    = c::crypto_ed25519_public_key;
+        static constexpr auto public_to_kx_fn  = c::crypto_from_ed25519_public;
+        static constexpr auto private_to_kx_fn = c::crypto_from_ed25519_private;
 
         // Convenient type aliases for those who don't like angle brackets
         using signature   = monocypher::signature<Ed25519>;
@@ -65,18 +65,18 @@ namespace monocypher {
         static constexpr const char* name = "SHA-512";
         static constexpr size_t hash_size = 512 / 8;
 
-        using context = crypto_sha512_ctx;
-        static constexpr auto create_fn = crypto_sha512;
-        static constexpr auto init_fn   = crypto_sha512_init;
-        static constexpr auto update_fn = crypto_sha512_update;
-        static constexpr auto final_fn  = crypto_sha512_final;
+        using context = c::crypto_sha512_ctx;
+        static constexpr auto create_fn = c::crypto_sha512;
+        static constexpr auto init_fn   = c::crypto_sha512_init;
+        static constexpr auto update_fn = c::crypto_sha512_update;
+        static constexpr auto final_fn  = c::crypto_sha512_final;
 
         struct mac {
-            using context = crypto_hmac_sha512_ctx;
-            static constexpr auto create_fn = crypto_hmac_sha512;
-            static constexpr auto init_fn   = crypto_hmac_sha512_init;
-            static constexpr auto update_fn = crypto_hmac_sha512_update;
-            static constexpr auto final_fn  = crypto_hmac_sha512_final;
+            using context = c::crypto_hmac_sha512_ctx;
+            static constexpr auto create_fn = c::crypto_hmac_sha512;
+            static constexpr auto init_fn   = c::crypto_hmac_sha512_init;
+            static constexpr auto update_fn = c::crypto_hmac_sha512_update;
+            static constexpr auto final_fn  = c::crypto_hmac_sha512_final;
         };
     };
 

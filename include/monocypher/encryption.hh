@@ -207,8 +207,8 @@ namespace monocypher {
     ///        But see `XSalsa20_Poly1305`, in `Monocypher+xsalsa20.hh`.
     struct XChaCha20_Poly1305 {
         static constexpr const char* name = "XChaCha20+Poly1305";
-        static constexpr auto lock   = crypto_lock;
-        static constexpr auto unlock = crypto_unlock;
+        static constexpr auto lock   = c::crypto_lock;
+        static constexpr auto unlock = c::crypto_unlock;
     };
 
 }

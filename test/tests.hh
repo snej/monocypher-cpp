@@ -6,33 +6,32 @@
 //
 
 #pragma once
-#include "Monocypher.hh"
-#include "Monocypher-ed25519.hh"
 #include <cstdio>
 #include <string>
 
 using namespace std;
-using namespace monocypher;
 
 
 static string hexString(const void *buf, size_t size) {
-    auto hex = make_unique<char[]>(2*size + size/4 + 1);
-    char *dst = hex.get();
+    string hex;
+    hex.resize(size * 2 + size / 4);
+    char *dst = hex.data();
     for (size_t i = 0; i < size; i++) {
         if (i > 0 && (i % 4) == 0) *dst++ = ' ';
         dst += sprintf(dst, "%02X", ((const uint8_t*)buf)[i]);
     }
-    return string(hex.get());
-}
-
-
-template <size_t Size>
-string hexString(const byte_array<Size> &a) {
-    return hexString(a.data(), Size);
+    hex.resize(dst - hex.data());
+    return hex;
 }
 
 
 template <size_t Size>
 string hexString(const void *buf) {
     return hexString(buf, Size);
+}
+
+
+template <size_t Size>
+string hexString(const array<uint8_t,Size> &a) {
+    return hexString<Size>(a.data());
 }
