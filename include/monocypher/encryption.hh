@@ -1,7 +1,7 @@
 //
 //  monocypher/encryption.hh
 //
-//  Unofficial idiomatic C++17 wrapper for Monocypher
+//  Monocypher-Cpp: Unofficial idiomatic C++17 wrapper for Monocypher
 //  <https://monocypher.org>
 //
 //  Copyright (c) 2022 Jens Alfke. All rights reserved.
