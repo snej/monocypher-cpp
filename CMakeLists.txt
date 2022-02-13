@@ -1,29 +1,38 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(MonocypherCppTest)
+project(MonocypherCpp)
 
-add_executable( tests
+
+set(CMAKE_CXX_STANDARD 17)
+
+include_directories(
+    "include"
+)
+
+
+add_library( MonocypherCpp STATIC
     src/Monocypher.cc
     src/Monocypher-ed25519.cc
     src/Monocypher+sha256.cc
     src/Monocypher+xsalsa20.cc
+)
+
+
+#### TESTS
+
+add_executable( MonocypherCppTests
     test/tests.cc
 )
 
-include_directories(
-    "include"
-    "vendor/monocypher/src"
+target_link_libraries( MonocypherCppTests PRIVATE
+    MonocypherCpp
 )
 
-set_property(TARGET tests  
-    PROPERTY CXX_STANDARD 17
-)
-
-install(TARGETS tests)
+install(TARGETS MonocypherCppTests)
 
 enable_testing()
 
 add_test(
-    NAME tests
-    COMMAND tests
+    NAME MonocypherCppTests
+    COMMAND MonocypherCppTests
 )
