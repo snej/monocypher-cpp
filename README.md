@@ -36,17 +36,17 @@ Moreover, objects are zeroed out when destructed, to avoid leaving secrets in me
 
 ## Using it
 
-You should be OK on recent versions of Linux, Windows, and Apple platforms, using up-to-date versions of Clang, GCC or MSVC. That's what the CI tests cover. 
+You should be OK on recent versions of Linux, Windows, and Apple platforms, using up-to-date versions of Clang, GCC or MSVC, and CMake 3.16 or later. That's what the CI tests cover. 
 
 0. If you haven't already, get the Monocypher submodule by running `git submodule update --init`.
-1. Run the script `run_tests.sh`. This just compiles & runs `test/tests.cc`, some simple tests.
-2. Add the directories `include` and `vendor/monocypher/src` to your compiler's include path.
+1. Run the script `build_and_test.sh`. This uses CMake to build the library and some unit tests, and runs the tests.
+2. Add the `include` directory to your compiler's include path.
 3. Add `src/Monocypher.cc` to your project's source file list.
 4. `#include "Monocypher.hh"` in source files where you want to use Monocypher.
-5. If you need to use Ed25519 signatures, also compile `src/Monocypher-ed25519.cc` and `#include "Monocypher-ed25519.hh"`.
-5. Read the [Monocypher documentation](https://monocypher.org/manual/) to learn how to use the API! The correspondence between the functions documented there, and the classes/methods here, should be clear. You can also consult `test/tests.cc` as a source of examples.
+5. If you need to use Ed25519 signatures or SHA-512 digests, also compile `src/Monocypher-ed25519.cc` and `#include "Monocypher-ed25519.hh"`. Ditto for SHA-256 and XSalsa20, which have their own headers and source files.
+5. Read the [Monocypher documentation](https://monocypher.org/manual/) to learn how to use the API! The correspondence between the functions documented there, and the classes/methods here, should be clear. You can also consult `tests/MonocypherCppTests.cc` as a source of examples.
 
-> Note that you do _not_ need to compile the Monocypher C source files in `vendor/monocypher/src/`. The C++ source files compile them for you indirectly, wrapping their symbols in a C++ namespace.
+> ⚠️ You do _not_ need to compile or include the Monocypher C files in `vendor/monocypher/`. The C++ source files compile and include them for you indirectly, wrapping their symbols in a C++ namespace.
 
 ## To-Do
 
