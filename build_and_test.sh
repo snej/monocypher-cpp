@@ -17,7 +17,7 @@ echo "Running tests..."
 
 if [ -e Debug/MonocypherCppTests.exe ]
 then
-    Debug/MonocypherCppTests.exe
+    Debug/MonocypherCppTests.exe -r list
 else
-    ./MonocypherCppTests
+    ./MonocypherCppTests -r list
 fi
