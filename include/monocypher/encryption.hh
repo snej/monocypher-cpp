@@ -98,17 +98,18 @@ namespace monocypher {
             mac lock(const nonce &nonce,
                      const void *plain_text, size_t text_size,
                      void *cipher_text) const {
-                mac out_mac;
-                Algorithm::lock(out_mac.data(), u8(cipher_text), this->data(), nonce.data(),
-                                u8(plain_text), text_size);
-                return out_mac;
+                return lock(nonce, {plain_text, text_size}, cipher_text);
             }
 
             [[nodiscard]]
             mac lock(const nonce &nonce,
                      input_bytes plain_text,
                      void *cipher_text) const {
-                return lock(nonce, plain_text.data, plain_text.size, cipher_text);
+                fixOverlap(plain_text, cipher_text);
+                mac out_mac;
+                Algorithm::lock(out_mac.data(), u8(cipher_text), this->data(), nonce.data(),
+                                plain_text.data, plain_text.size);
+                return out_mac;
             }
 
             /// Authenticates `cipher_text` using the `mac`, then decrypts it, writing the result to
@@ -125,16 +126,17 @@ namespace monocypher {
                         const mac &mac,
                         const void *cipher_text, size_t text_size,
                         void *plain_text) const {
-                return 0 == Algorithm::unlock(u8(plain_text), this->data(), nonce.data(),
-                                              mac.data(), u8(cipher_text), text_size);
+                return unlock(nonce, mac, {cipher_text, text_size}, plain_text);
             }
 
             [[nodiscard]]
             bool unlock(const nonce &nonce,
-                        const mac &mac,
+                        mac in_mac,
                         input_bytes cipher_text,
                         void *plain_text) const {
-                return unlock(nonce, mac, cipher_text.data, cipher_text.size, plain_text);
+                fixOverlap(cipher_text, plain_text);
+                return 0 == Algorithm::unlock(u8(plain_text), this->data(), nonce.data(),
+                                              in_mac.data(), cipher_text.data, cipher_text.size);
             }
 
 
@@ -194,6 +196,17 @@ namespace monocypher {
                 return out.size == output.size();
             }
 
+        private:
+            // `crypto_lock` only allows input and output buffers to overlap if they're identical.
+            // If the src and dst ranges overlap but are not identical, copy src to dst and set
+            // src.data to dst.
+            static void fixOverlap(input_bytes &src, void *dst) {
+                if ((src.data > dst && src.data < (uint8_t*)dst + src.size)
+                        || (src.data < dst && src.data + src.size > dst)) {
+                    ::memmove(dst, src.data, src.size);
+                    src.data = (const uint8_t*)dst;
+                }
+            }
         };
 
         using key = encryption_key<XChaCha20_Poly1305>;

@@ -176,8 +176,8 @@ namespace monocypher {
 
     /// Variable-length data input to a function. Implicit conversion from string and array.
     struct input_bytes {
-        uint8_t const* const data;
-        size_t const         size;
+        uint8_t const* data;
+        size_t         size;
 
         input_bytes(const void *d, size_t s)    :data(u8(d)), size(s) { }
         input_bytes(std::string_view str)       :input_bytes(str.data(), str.size()) { }
