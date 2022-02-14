@@ -15,9 +15,9 @@ cmake --build .
 
 echo "Running tests..."
 
-if [ -e Debug/tests.exe ]
+if [ -e Debug/MonocypherCppTests.exe ]
 then
-    Debug/tests.exe
+    Debug/MonocypherCppTests.exe
 else
-    ./tests
+    ./MonocypherCppTests
 fi
