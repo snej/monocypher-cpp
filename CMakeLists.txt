@@ -6,7 +6,7 @@ project(MonocypherCpp)
 set(CMAKE_CXX_STANDARD 17)
 
 include_directories(
-    "include"
+    "include/"
 )
 
 
@@ -21,18 +21,14 @@ add_library( MonocypherCpp STATIC
 #### TESTS
 
 add_executable( MonocypherCppTests
-    test/tests.cc
+    tests/MonocypherCppTests.cc
+    tests/tests_main.cc
+)
+
+target_include_directories( MonocypherCppTests PRIVATE
+    "vendor/catch2/"
 )
 
 target_link_libraries( MonocypherCppTests PRIVATE
     MonocypherCpp
-)
-
-install(TARGETS MonocypherCppTests)
-
-enable_testing()
-
-add_test(
-    NAME MonocypherCppTests
-    COMMAND MonocypherCppTests
 )
