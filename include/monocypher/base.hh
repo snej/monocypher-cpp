@@ -120,6 +120,14 @@ namespace monocypher {
             return result;
         }
 
+        /// Treats the array as a little-endian base-256 integer, and adds 1 to it.
+        void increment() {
+            for (size_t i = 0; i < Size; ++i) {
+                if (++(*this)[i] != 0)
+                    break;
+            }
+        }
+
         explicit operator uint8_t*()                         {return this->data();}
         explicit operator const uint8_t*() const             {return this->data();}
     };

@@ -58,10 +58,7 @@ namespace monocypher {
 
             /// Convenience function to increment a nonce (interpreted as 192-bit little-endian.)
             nonce& operator++ () {
-                for (size_t i = 0; i < 24; ++i) {
-                    if (++(*this)[i] != 0)
-                        break;
-                }
+                increment();
                 return *this;
             }
         };
