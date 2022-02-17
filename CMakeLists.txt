@@ -3,7 +3,16 @@ cmake_minimum_required(VERSION 3.16)
 project(MonocypherCpp)
 
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD          17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD            11)
+set(CMAKE_C_STANDARD_REQUIRED   ON)
+
+if (MSVC)
+    add_compile_options(/W4) # TODO: Add /WX
+else()
+    add_compile_options(-Wall -Wpedantic -Werror)
+endif()
 
 include_directories(
     "include/"
@@ -17,6 +26,11 @@ add_library( MonocypherCpp STATIC
     src/Monocypher+xsalsa20.cc
 )
 
+if (NOT MSVC)
+    set_source_files_properties(
+        src/Monocypher+xsalsa20.cc  PROPERTIES COMPILE_OPTIONS  "-Wno-sign-compare"
+    )
+endif()
 
 #### TESTS
 
