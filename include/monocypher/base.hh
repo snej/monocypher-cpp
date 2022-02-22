@@ -97,6 +97,11 @@ namespace monocypher {
             ::memcpy(this->data(), bytes, sizeof(*this));
         }
 
+        void fillWithString(const char *str) {
+            clear();
+            ::memcpy(this->data(), str, std::min(strlen(str), Size));
+        }
+
         /// Returns a subrange of this array, as a mutable reference.
         template<size_t Pos, size_t Len>
         byte_array<Len>& range() {

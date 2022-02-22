@@ -58,7 +58,7 @@ namespace monocypher {
             salt()                                           :secret_byte_array<16>(0) { }
             explicit salt(const std::array<uint8_t,16> &a)   :secret_byte_array<16>(a) { }
             salt(const void *data, size_t size)              :secret_byte_array<16>(data, size) { }
-            salt(const char *str)                 { ::strncpy((char*)data(), str, sizeof(*this)); }
+            salt(const char *str)                            {fillWithString(str);}
         };
 
         /// Generates an Argon2i hash from a password and a given salt value.
