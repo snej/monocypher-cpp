@@ -71,6 +71,8 @@ namespace monocypher {
     template <size_t Size>
     class byte_array: public std::array<uint8_t, Size> {
     public:
+        static constexpr size_t byte_count = Size;
+        
         explicit byte_array() { }
         explicit byte_array(uint8_t b)                           {::memset(this->data(), b, Size);}
         explicit byte_array(const std::array<uint8_t,Size> &a)   :std::array<uint8_t,Size>(a) { }
