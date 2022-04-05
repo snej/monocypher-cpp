@@ -200,6 +200,8 @@ namespace monocypher {
 
         template <size_t Size>
         input_bytes(byte_array<Size> const& a)  :data(a.data()), size(a.size()) { }
+
+        void consume(size_t n)                  {assert(n <= size); data += n; size -= n;}
     };
 
 

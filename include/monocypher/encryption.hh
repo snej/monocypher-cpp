@@ -54,6 +54,8 @@ namespace monocypher {
                     (*this)[i] = uint8_t(n & 0xFF);
             }
 
+            explicit nonce(const std::array<uint8_t,24> &a)             :byte_array<24>(a) { }
+
             nonce& operator= (uint64_t n) {*this = nonce(n); return *this;}
 
             /// Convenience function to increment a nonce (interpreted as 192-bit little-endian.)
@@ -67,6 +69,15 @@ namespace monocypher {
         /// A Message Authentication Code, to be sent along with an encrypted message.
         /// (Like a signature, but can only be verified by someone who knows the session key.)
         struct mac : public byte_array<16> { };
+
+
+        static constexpr size_t boxedSize(size_t plaintextSize) {
+            return plaintextSize + sizeof(mac);
+        }
+
+        static constexpr size_t unboxedSize(size_t ciphertextSize) {
+            return std::max(ciphertextSize, sizeof(mac)) - sizeof(mac);
+        }
 
 
         /// A session key for _symmetric_ encryption/decryption -- both sides must use the same key.
@@ -145,7 +156,7 @@ namespace monocypher {
                              input_bytes plain_text,
                              output_bytes output_buffer) const
             {
-                output_buffer = output_buffer.shrunk_to(sizeof(mac) + plain_text.size);
+                output_buffer = output_buffer.shrunk_to(boxedSize(plain_text.size));
                 auto mac_p = (mac*)output_buffer.data;
                 *mac_p = lock(nonce, plain_text, mac_p + 1);
                 return output_buffer;
@@ -157,7 +168,7 @@ namespace monocypher {
             byte_array<OutputSize> box(const nonce &nonce,
                                        input_bytes plain_text) const
             {
-                assert(OutputSize == sizeof(mac) + plain_text.size);
+                assert(OutputSize == boxedSize(plain_text.size));
                 byte_array<OutputSize> result;
                 box(nonce, plain_text, result);
                 return result;
@@ -174,7 +185,7 @@ namespace monocypher {
             {
                 if (boxed_cipher_text.size < sizeof(mac))
                     return {};
-                output_buffer = output_buffer.shrunk_to(boxed_cipher_text.size - sizeof(mac));
+                output_buffer = output_buffer.shrunk_to(unboxedSize(boxed_cipher_text.size));
                 auto mac_p = (const mac*)boxed_cipher_text.data;
                 if (!unlock(nonce, *mac_p, mac_p + 1,
                             output_buffer.size,
