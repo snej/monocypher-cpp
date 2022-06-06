@@ -29,11 +29,11 @@
 static inline std::string hexString(const void *buf, size_t size, bool spaces =true) {
     std::string hex;
     hex.resize(size * 2 + size / 4);
-    char *dst = hex.data();
+    char *dst = hex.data(), *end = &hex.back() + 1;
     for (size_t i = 0; i < size; i++) {
         if (spaces && i > 0 && (i % 4) == 0) 
         	*dst++ = ' ';
-        dst += sprintf(dst, "%02X", ((const uint8_t*)buf)[i]);
+        dst += snprintf(dst, end - dst, "%02X", ((const uint8_t*)buf)[i]);
     }
     hex.resize(dst - hex.data());
     return hex;
