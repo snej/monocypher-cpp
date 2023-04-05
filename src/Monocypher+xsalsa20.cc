@@ -54,10 +54,15 @@ namespace monocypher::ext {
     // Unboxing is the reverse.
     // WTF.
 
-    void XSalsa20_Poly1305::lock(uint8_t mac[16], uint8_t *out,
-                                 const uint8_t key[32], const uint8_t nonce[24],
+    void XSalsa20_Poly1305::lock(uint8_t *out,
+                                 uint8_t mac[16],
+                                 const uint8_t key[32],
+                                 const uint8_t nonce[24],
+                                 const uint8_t *ad, size_t ad_size,
                                  const uint8_t *plaintext, size_t size)
     {
+        if (ad_size > 0)
+            throw std::runtime_error("XSalsa20_Poly1305 does not support additional authenticated data");
         //TODO: Find a way to do this without having to allocate temporary buffers.
         auto inBuffer = std::make_unique<uint8_t[]>(32 + size);
         memset(&inBuffer[ 0], 0, 32);
@@ -80,10 +85,14 @@ namespace monocypher::ext {
     }
 
     int XSalsa20_Poly1305::unlock(uint8_t *out,
-                                  const uint8_t key[32], const uint8_t nonce[24],
                                   const uint8_t mac[16],
+                                  const uint8_t key[32],
+                                  const uint8_t nonce[24],
+                                  const uint8_t *ad, size_t ad_size,
                                   const uint8_t *ciphertext, size_t size)
     {
+        if (ad_size > 0)
+            throw std::runtime_error("XSalsa20_Poly1305 does not support additional authenticated data");
         //TODO: Find a way to do this without having to allocate temporary buffers.
         auto inBuffer = std::make_unique<uint8_t[]>(32 + size);
         memset(&inBuffer[0], 0, 16);

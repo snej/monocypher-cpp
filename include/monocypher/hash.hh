@@ -135,10 +135,10 @@ namespace monocypher {
         using context = c::crypto_blake2b_ctx;
 
         static void create_fn(uint8_t *hash, const uint8_t *message, size_t message_size) {
-            c::crypto_blake2b_general(hash, Size, nullptr, 0, message, message_size);
+            c::crypto_blake2b(hash, hash_size, message, message_size);
         }
         static void init_fn(context *ctx) {
-            c::crypto_blake2b_general_init(ctx, Size, nullptr, 0);
+            c::crypto_blake2b_init(ctx, hash_size);
         }
         static constexpr auto update_fn     = c::crypto_blake2b_update;
         static constexpr auto final_fn      = c::crypto_blake2b_final;
@@ -149,10 +149,10 @@ namespace monocypher {
             static void create_fn(uint8_t *hash, const uint8_t *key, size_t key_size,
                                   const uint8_t *message, size_t message_size)
             {
-                c::crypto_blake2b_general(hash, Size, key, key_size, message, message_size);
+                c::crypto_blake2b_keyed(hash, hash_size, key, key_size, message, message_size);
             }
             static void init_fn(context *ctx, const uint8_t *key, size_t key_size) {
-                c::crypto_blake2b_general_init(ctx, Size, key, key_size);
+                c::crypto_blake2b_keyed_init(ctx, hash_size, key, key_size);
             }
             static constexpr auto update_fn     = c::crypto_blake2b_update;
             static constexpr auto final_fn      = c::crypto_blake2b_final;

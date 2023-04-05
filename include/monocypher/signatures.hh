@@ -68,117 +68,49 @@ namespace monocypher {
         bool check(const signature<Algorithm> &sig, input_bytes msg) const {
             return check(sig, msg.data, msg.size);
         }
-
-        /// Converts a public signature-verification key to a Curve25519 public key,
-        /// for key exchange or encryption.
-        /// @warning "It is generally considered poor form to reuse the same key for different
-        ///     purposes. While this conversion is technically safe, avoid these functions
-        ///     nonetheless unless you are particularly resource-constrained or have some other
-        ///     kind of hard requirement. It is otherwise an unnecessary risk factor."
-        explicit operator key_exchange<X25519_HChaCha20>::public_key() const {
-            key_exchange<X25519_HChaCha20>::public_key pk;
-            Algorithm::public_to_kx_fn(pk.data(), this->data());
-            return pk;
-        }
     };
 
 
-    /// A secret/private key for generating signatures. (For <Algorithm> use <EdDSA> or <Ed25519>.)
+    /// A key-pair for generating signatures. (For <Algorithm> use <EdDSA> or <Ed25519>.)
     template <class Algorithm = EdDSA>
-    struct signing_key : public secret_byte_array<32> {
-        using public_key = monocypher::public_key<Algorithm>;
-        using signature = monocypher::signature<Algorithm>;
-
-        explicit signing_key(const std::array<uint8_t,32> &a) :secret_byte_array<32>(a) { }
-        signing_key(const void *data, size_t size)            :secret_byte_array<32>(data, size) { }
-
-        /// Creates a random secret key.
-        static signing_key generate() {
-            return signing_key();
-        }
-
-        /// Computes and returns the matching public key.
-        public_key get_public_key() const {
-            public_key pub;
-            Algorithm::public_key_fn(pub.data(), this->data());
-            return pub;
-        }
-
-        /// Signs a message. (Passing in the public key speeds up the computation.)
-        [[nodiscard]]
-        signature sign(const void *message, size_t message_size,
-                       const public_key &pubKey) const {
-            signature sig;
-            Algorithm::sign_fn(sig.data(), this->data(), pubKey.data(), u8(message), message_size);
-            return sig;
-        }
-
-        /// Signs a message. (Passing in the public key speeds up the computation.)
-        [[nodiscard]]
-        signature sign(input_bytes message, const public_key &pubKey) const {
-            return sign(message.data, message.size, pubKey);
-        }
-
-        /// Signs a message.
-        /// @note This has to first recompute the public key, which makes it a bit slower.
-        [[nodiscard]]
-        signature sign(const void *message, size_t message_size) const {
-            signature sig;
-            Algorithm::sign_fn(sig.data(), this->data(), nullptr, u8(message), message_size);
-            return sig;
-        }
-
-        /// Signs a message.
-        /// @note This has to first recompute the public key, which makes it a bit slower.
-        [[nodiscard]]
-        signature sign(input_bytes message) const {
-            return sign(message.data, message.size);
-        }
-
-    private:
-        signing_key() {randomize();}
-    };
-
-
-    /// A `signing_key` together with its `public_key`.
-    /// Takes up more space, but is faster because the public key doesn't have to be derived.
-    template <class Algorithm = EdDSA>
-    struct key_pair {
-        using signing_key = monocypher::signing_key<Algorithm>;
+    struct key_pair : public secret_byte_array<64> {
         using public_key = monocypher::public_key<Algorithm>;
         using signature = monocypher::signature<Algorithm>;
 
         /// Creates a new key-pair at random.
         static key_pair generate() {
-            return key_pair(signing_key::generate());
+            return key_pair(seed());
         }
 
-        explicit key_pair(const signing_key &sk,
-                          const public_key &pk)             :_signingKey(sk), _publicKey(pk) { }
-        explicit key_pair(const signing_key &sk)            :key_pair(sk, sk.get_public_key()) { }
-        explicit key_pair(const std::array<uint8_t,32> &sa) :key_pair(signing_key(sa)) { }
-        key_pair(const void *sk_data, size_t size)          :key_pair(signing_key(sk_data, size)) { }
-
-        /// Returns the signing key.
-        const signing_key& get_signing_key() const          {return _signingKey;}
+        explicit key_pair(const std::array<uint8_t,64> &a)   :secret_byte_array<64>(a) { }
+        key_pair(const void *data, size_t size)              :secret_byte_array<64>(data, size) { }
+        explicit key_pair(input_bytes k)                     :secret_byte_array<64>(k.data, k.size) { }
 
         /// Returns the public key.
-        const public_key& get_public_key() const            {return _publicKey;}
+        const public_key& get_public_key() const {
+            // "Now the private key is 64 bytes, and is the concatenation of the seed and the public
+            // key just like Libsodium." --Loup Vaillant, commit da7b5407
+            return reinterpret_cast<public_key const&>(range<32,32>());
+        }
 
         /// Signs a message.
         [[nodiscard]]
         signature sign(const void *message, size_t message_size) const {
-            return _signingKey.sign(message, message_size, _publicKey);
+            signature sig;
+            Algorithm::sign_fn(sig.data(), data(), u8(message), message_size);
+            return sig;
         }
 
         /// Signs a message.
         [[nodiscard]]
-        signature sign(input_bytes msg) const               {return sign(msg.data, msg.size);}
+        signature sign(input_bytes message) const {
+            return sign(message.data, message.size);
+        }
 
         /// Verifies a signature.
         [[nodiscard]]
         bool check(const signature &sig, const void *msg, size_t msg_size) const {
-            return _publicKey.check(sig, msg, msg_size);
+            return get_public_key().check(sig, msg, msg_size);
         }
 
         [[nodiscard]]
@@ -186,44 +118,73 @@ namespace monocypher {
             return check(sig, msg.data, msg.size);
         }
 
+        /// The random data that a key_pair is derived from; also known as the secret key.
+        struct seed : public secret_byte_array<32> {
+            seed()                                          {randomize();}
+            explicit seed(const std::array<uint8_t,32> &a)  :secret_byte_array<32>(a) { }
+            seed(const void *data, size_t size)             :secret_byte_array<32>(data, size) { }
+
+            /// Computes and returns the matching public key.
+            inline public_key get_public_key() const{
+                return key_pair(*this).get_public_key();
+            }
+
+            /// Signs a message.
+            /// @note This has to first recompute the public key, which makes it a bit slower.
+            [[nodiscard]]
+            inline signature sign(const void *message, size_t message_size) const{
+                return key_pair(*this).sign(message, message_size);
+            }
+
+            /// Signs a message.
+            /// @note This has to first recompute the public key, which makes it a bit slower.
+            [[nodiscard]]
+            signature sign(input_bytes message) const {
+                return sign(message.data, message.size);
+            }
+        };
+
+        explicit key_pair(const seed &sk) {
+            // "Users who can't afford the overhead of storing 32 additional bytes for
+            //  the secret key (say they need to burn the key into expensive fuses),
+            //  they can always only store the first 32 bytes, and re-derive the entire
+            //  key pair when they need it." --Loup Vaillant, commit da7b5407
+            secret_byte_array<32> seed = sk;
+            public_key pub; // ignored
+            Algorithm::generate_fn(data(), pub.data(), seed.data());
+        }
+
+        /// Returns the 32-byte seed, or secret key. The key_pair can be recreated from this.
+        const seed& get_seed() const {
+            return reinterpret_cast<seed const&>(range<0,32>());
+        }
+
     private:
-        signing_key _signingKey;
-        public_key  _publicKey;
+        key_pair() = default;
     };
 
 
+    // compatibility alias for clients that used to use the `signing_key` class.
+    template <class Algorithm = EdDSA>
+    using signing_key = typename key_pair<Algorithm>::seed;
+
+
+
     /// EdDSA with Curve25519 and Blake2b.
-    /// (Use as `<Algorithm>` parameter to `signature`, `public_key`, `signing_key`.)
+    /// (Use as `<Algorithm>` parameter to `signature`, `public_key`, `key_pair`.)
     /// \note  This is not the same as the commonly-used Ed25519, which uses SHA-512.
     ///        An `Ed25519` struct is declared in `Monocypher-ed25519.hh`.
     struct EdDSA {
         static constexpr const char* name      = "EdDSA";
-        static constexpr auto check_fn         = c::crypto_check;
-        static constexpr auto sign_fn          = c::crypto_sign;
-        static constexpr auto public_key_fn    = c::crypto_sign_public_key;
-        static constexpr auto public_to_kx_fn  = c::crypto_from_eddsa_public;
-        static constexpr auto private_to_kx_fn = c::crypto_from_eddsa_private;
+        static constexpr auto generate_fn      = c::crypto_eddsa_key_pair;
+        static constexpr auto check_fn         = c::crypto_eddsa_check;
+        static constexpr auto sign_fn          = c::crypto_eddsa_sign;
+        static constexpr auto public_to_kx_fn  = c::crypto_eddsa_to_x25519;
 
         // Convenient type aliases for those who don't like angle brackets
         using signature   = monocypher::signature<EdDSA>;
         using public_key  = monocypher::public_key<EdDSA>;
-        using signing_key = monocypher::signing_key<EdDSA>;
         using key_pair    = monocypher::key_pair<EdDSA>;
     };
-
-
-    // Forward-declared template functions:
-
-    template <class A>
-    template <class SA>
-    key_exchange<A>::key_exchange(const monocypher::signing_key<SA> &signingKey) {
-        SA::private_to_kx_fn(_secret_key.data(), signingKey.data());
-    }
-
-    template <class A>
-    template <class SA>
-    key_exchange<A>::public_key::public_key(const monocypher::public_key<SA> &publicKey) {
-        SA::public_to_kx_fn(this->data(), publicKey.data());
-    }
 
 }

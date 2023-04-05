@@ -39,14 +39,35 @@
 namespace monocypher {
     using namespace MONOCYPHER_CPP_NAMESPACE;
 
-    /// Argon2i is a password key derivation scheme. It is deliberately slow and memory-intensive,
-    /// to deter brute-force attacks.
-    /// `Size` is the size of the hash in bytes, and should be either 32 or 64.
-    /// The `NBlocks` and `NIterations` parameters can tune the memory usage and time, but read
-    /// the Monocypher documentation so you know what you're doing.
-    template <size_t Size=64, uint32_t NBlocks = 100000, uint32_t NIterations = 3>
-    struct argon2i {
-        /// An Argon2i hash generated from a password.
+    enum ArgonAlgorithm {
+        Argon2d,
+        Argon2i,
+        Argon2id,
+    };
+
+    /// Argon2 is a password key derivation scheme: given an arbitrary password string,
+    /// it produces a 32- or 64-bit value derived from it, for use as a cryptographic key.
+    /// It is deliberately slow and memory-intensive, to deter brute-force attacks.
+    /// 
+    /// The template parameters adjust performance, but must be fixed ahead of time before any
+    /// passwords are hashed, since changing them changes the derived keys.
+    ///
+    /// - `Algorithm` selects the variant of Argon2, defaulting to Argon2i.
+    /// - `Size` is the size of the hash in bytes, and should be either 32 or 64.
+    /// - `NBlocks` is the "number of blocks for the work area. Must be at least 8.
+    ///    A value of 100000 (one hundred megabytes) is a good starting point.
+    ///    If the computation takes too long, reduce this number.
+    ///    If it is too fast, increase it.
+    ///    If it is still too fast with all available memory, increase nb_passes."
+    /// - `NIterations` is the "number of passes. Must be at least 1.
+    ///    A value of 3 is strongly recommended when using Argon2i;
+    ///    any value lower than 3 enables significantly more efficient attacks."
+    template <ArgonAlgorithm Algorithm = Argon2i,
+              size_t Size=64,
+              uint32_t NBlocks = 100000,
+              uint32_t NIterations = 3>
+    struct argon2 {
+        /// An Argon2 hash generated from a password.
         struct hash : public secret_byte_array<Size> {
             hash()                                           :secret_byte_array<Size>(0) { }
             explicit hash(const std::array<uint8_t,Size> &a) :secret_byte_array<Size>(a) { }
@@ -61,7 +82,7 @@ namespace monocypher {
             salt(const char *str)                            {fillWithString(str);}
         };
 
-        /// Generates an Argon2i hash from a password and a given salt value.
+        /// Generates an Argon2 hash from a password and a given salt value.
         /// \note This function is _deliberately_ slow. It's intended to take at least 0.5sec.
         /// \warning This _deliberately_ allocates a lot of memory while running: 100MB with the default
         ///     `NBlocks`. Throws `std::bad_alloc` on allocation failure, unless you've disabled
@@ -72,10 +93,20 @@ namespace monocypher {
             auto work_area = std::make_unique<uint8_t[]>(NBlocks * 1024);
             if (!work_area)
                 abort();  // exceptions must be disabled, but we cannot continue.
-            c::crypto_argon2i(result.data(), Size,
-                              work_area.get(), NBlocks, NIterations,
-                              u8(password), uint32_t(password_size),
-                              s4lt.data(), sizeof(s4lt));
+            c::crypto_argon2_config config = {
+                Algorithm,  // algorithm; Argon2d, Argon2i, Argon2id
+                NBlocks,    // nb_blocks; memory hardness, >= 8 * nb_lanes
+                NIterations,// nb_passes; CPU hardness, >= 1 (>= 3 recommended for Argon2i)
+                1,          // nb_lanes;  parallelism level (single threaded anyway)
+            };
+            c::crypto_argon2_inputs inputs = {
+                (const uint8_t*)password,
+                s4lt.data(),
+                uint32_t(password_size),
+                sizeof(s4lt),
+            };
+            c::crypto_argon2_extras extras = {};
+            c::crypto_argon2(result.data(), Size, work_area.get(), config, inputs, extras);
             return result;
         }
 
@@ -83,7 +114,7 @@ namespace monocypher {
             return create(password.data, password.size, s4lt);
         }
 
-        /// Generates an Argon2i hash from the input password and a randomly-generated salt value,
+        /// Generates an Argon2 hash from the input password and a randomly-generated salt value,
         /// and returns both.
         /// \note This function is _deliberately_ slow. It's intended to take at least 0.5sec.
         /// \warning This _deliberately_ allocates a lot of memory while running: 100MB with the default
@@ -99,5 +130,9 @@ namespace monocypher {
             return create(password.data, password.size);
         }
     };
+
+
+    template <size_t Size=64, uint32_t NBlocks = 100000, uint32_t NIterations = 3>
+    using argon2i = argon2<Argon2i,Size,NBlocks,NIterations>;
 
 }
