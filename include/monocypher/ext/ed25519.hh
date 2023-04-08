@@ -49,8 +49,14 @@ namespace monocypher {
         static constexpr auto generate_fn      = c::crypto_ed25519_key_pair;
         static constexpr auto check_fn         = c::crypto_ed25519_check;
         static constexpr auto sign_fn          = c::crypto_ed25519_sign;
-//        static constexpr auto public_to_kx_fn  = c::crypto_from_ed25519_public;
-//        static constexpr auto private_to_kx_fn = c::crypto_from_ed25519_private;
+        static constexpr auto public_to_kx_fn  = c::crypto_eddsa_to_x25519; // yup, it's the same
+
+        static void private_to_kx_fn(uint8_t x25519[32], const uint8_t eddsa[32]) {
+            // Adapted from Monocypher 3's crypto_from_ed25519_private()
+            secret_byte_array<64> a;
+            c::crypto_sha512(a.data(), eddsa, 32);
+            ::memcpy(x25519, a.data(), 32);
+        }
 
         // Convenient type aliases for those who don't like angle brackets
         using signature   = monocypher::signature<Ed25519>;

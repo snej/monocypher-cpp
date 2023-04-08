@@ -73,7 +73,7 @@ namespace monocypher {
     public:
         static constexpr size_t byte_count = Size;
         
-        explicit byte_array() { }
+        explicit byte_array() = default;
         explicit byte_array(uint8_t b)                           {::memset(this->data(), b, Size);}
         explicit byte_array(const std::array<uint8_t,Size> &a)   :std::array<uint8_t,Size>(a) { }
         explicit byte_array(const void *bytes, size_t size)      {fillWith(bytes, size);}
@@ -145,7 +145,7 @@ namespace monocypher {
     template <size_t Size>
     class secret_byte_array: public byte_array<Size> {
     public:
-        explicit secret_byte_array() { }
+        explicit secret_byte_array() = default;
         explicit secret_byte_array(uint8_t b)                           :byte_array<Size>(b) { }
         explicit secret_byte_array(const std::array<uint8_t,Size> &a)   :byte_array<Size>(a) { }
         explicit secret_byte_array(const void *p, size_t s)             :byte_array<Size>(p, s) { }

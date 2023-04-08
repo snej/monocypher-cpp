@@ -277,23 +277,21 @@ TEST_CASE("EdDSA Signatures", "[Crypto")   {test_signatures<EdDSA>();}
 TEST_CASE("Ed25519 Signatures", "[Crypto") {test_signatures<Ed25519>();}
 
 
-#if 0
-
 template <class Algorithm>
 static void test_signatures_to_kx() {
     auto keyPair1 = key_pair<Algorithm>::generate();
     auto keyPair2 = key_pair<Algorithm>::generate();
 
     // Convert the signing key-pairs to key-exchange key-pairs:
-    key_exchange<X25519_Raw> kx1(keyPair1.get_signing_key());
-    key_exchange<X25519_Raw> kx2(keyPair2.get_signing_key());
+    key_exchange<X25519_Raw> kx1 = keyPair1.key_exchange<X25519_Raw>();
+    key_exchange<X25519_Raw> kx2 = keyPair2.key_exchange<X25519_Raw>();
 
     // Check that we can derive KX public keys from signing public keys:
     auto pk1 = kx1.get_public_key();
     auto pk2 = kx2.get_public_key();
 
-    CHECK(pk1 == key_exchange<X25519_Raw>::public_key(keyPair1.get_public_key()));
-    CHECK(pk2 == key_exchange<X25519_Raw>::public_key(keyPair2.get_public_key()));
+    CHECK(pk1 == keyPair1.get_public_key().template for_key_exchange<X25519_Raw>());
+    CHECK(pk2 == keyPair2.get_public_key().template for_key_exchange<X25519_Raw>());
     cout << "✔︎ KX public keys derived from signing public keys are correct.\n";
 
     // Generate the shared secrets:
@@ -307,5 +305,3 @@ static void test_signatures_to_kx() {
 
 TEST_CASE("EdDSA Signature-to-KeyExchange", "[Crypto")   {test_signatures_to_kx<EdDSA>();}
 TEST_CASE("Ed25519 Signature-to-KeyExchange", "[Crypto") {test_signatures_to_kx<Ed25519>();}
-
-#endif

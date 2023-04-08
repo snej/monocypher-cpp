@@ -37,13 +37,34 @@
 namespace monocypher {
     using namespace MONOCYPHER_CPP_NAMESPACE;
 
+    template <class SigAlg> struct public_key;
+    template <class SigAlg> struct key_pair;
+
+
     /// Raw Curve25519 key exchange algorithm for `key_exchange`; use only if you know what
     /// you're doing!
-    /// @warning Shared secrets are not quite random. Hash them to derive an actual shared key.
+    /// @warning Shared secrets are not quite random. Hash them to derive an actual shared key;
+    ///     X25519_HChaCha20 does this.
     struct X25519_Raw {
         static constexpr const char* name = "X25519";
         static constexpr auto get_public_key_fn = c::crypto_x25519_public_key;
         static constexpr auto key_exchange_fn   = c::crypto_x25519;
+    };
+
+    /// Curve25519 key exchange, with the output shared key run through the HChaCha20 hash function
+    /// to improve its randomness.
+    struct X25519_HChaCha20 {
+        static constexpr const char* name = "X25519+HChaCha20";
+        static constexpr auto get_public_key_fn = c::crypto_x25519_public_key;
+
+        static void key_exchange_fn (uint8_t       shared_key[32],
+                                     const uint8_t your_secret_key [32],
+                                     const uint8_t their_public_key[32])
+        {
+            c::crypto_x25519(shared_key, your_secret_key, their_public_key);
+            byte_array<16> zero {0};
+            c::crypto_chacha20_h(shared_key, shared_key, zero.data());
+        }
     };
 
 
@@ -60,6 +81,9 @@ namespace monocypher {
             public_key()                                           :byte_array<32>(0) { }
             explicit public_key(const std::array<uint8_t,32> &a)   :byte_array<32>(a) { }
             public_key(const void *data, size_t size)              :byte_array<32>(data, size) { }
+
+            /// Creates a key-exchange (Curve25519) public key from a signing (Ed25519) public key.
+            template <class SigAlg> explicit public_key(const monocypher::public_key<SigAlg>&);
         };
 
         /// A secret value derived from two parties' keys, which will be the same for both.
@@ -74,6 +98,9 @@ namespace monocypher {
         /// Initializes a key exchange, using an existing secret key.
         explicit key_exchange(const secret_key &key)
         :_secret_key(key) { }
+
+        /// Initializes a Curve25519 key-exchange context from an Ed25519 signing key-pair.
+        template <class SigAlg> explicit key_exchange(const key_pair<SigAlg>&);
 
         /// Returns the public key to send to the other party.
         public_key get_public_key() const {

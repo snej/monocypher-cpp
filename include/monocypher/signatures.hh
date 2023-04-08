@@ -68,6 +68,19 @@ namespace monocypher {
         bool check(const signature<Algorithm> &sig, input_bytes msg) const {
             return check(sig, msg.data, msg.size);
         }
+
+        /// Converts a public signature-verification key to a Curve25519 public key,
+        /// for key exchange or encryption.
+        /// @warning "It is generally considered poor form to reuse the same key for different
+        ///     purposes. While this conversion is technically safe, avoid these functions
+        ///     nonetheless unless you are particularly resource-constrained or have some other
+        ///     kind of hard requirement. It is otherwise an unnecessary risk factor."
+        template <class KXAlg>
+        typename key_exchange<KXAlg>::public_key for_key_exchange() const {
+            typename key_exchange<KXAlg>::public_key pk;
+            Algorithm::public_to_kx_fn(pk.data(), this->data());
+            return pk;
+        }
     };
 
 
@@ -79,7 +92,12 @@ namespace monocypher {
 
         /// Creates a new key-pair at random.
         static key_pair generate() {
-            return key_pair(seed());
+            secret_byte_array<32> initialSeed;
+            initialSeed.randomize();
+            public_key pub; // ignored
+            key_pair keyPair;
+            Algorithm::generate_fn(keyPair.data(), pub.data(), initialSeed.data());
+            return keyPair;
         }
 
         explicit key_pair(const std::array<uint8_t,64> &a)   :secret_byte_array<64>(a) { }
@@ -120,7 +138,6 @@ namespace monocypher {
 
         /// The random data that a key_pair is derived from; also known as the secret key.
         struct seed : public secret_byte_array<32> {
-            seed()                                          {randomize();}
             explicit seed(const std::array<uint8_t,32> &a)  :secret_byte_array<32>(a) { }
             seed(const void *data, size_t size)             :secret_byte_array<32>(data, size) { }
 
@@ -142,6 +159,14 @@ namespace monocypher {
             signature sign(input_bytes message) const {
                 return sign(message.data, message.size);
             }
+
+            template <class KXAlg>
+            key_exchange<KXAlg> key_exchange() const {
+                typename monocypher::key_exchange<KXAlg>::secret_key secretKey;
+                Algorithm::private_to_kx_fn(secretKey.data(), this->data());
+                return monocypher::key_exchange<KXAlg>(secretKey);
+            }
+
         };
 
         explicit key_pair(const seed &sk) {
@@ -149,14 +174,26 @@ namespace monocypher {
             //  the secret key (say they need to burn the key into expensive fuses),
             //  they can always only store the first 32 bytes, and re-derive the entire
             //  key pair when they need it." --Loup Vaillant, commit da7b5407
-            secret_byte_array<32> seed = sk;
+            seed s33d = sk;
             public_key pub; // ignored
-            Algorithm::generate_fn(data(), pub.data(), seed.data());
+            Algorithm::generate_fn(data(), pub.data(), s33d.data());
+            assert(get_seed() == sk);
         }
 
         /// Returns the 32-byte seed, or secret key. The key_pair can be recreated from this.
         const seed& get_seed() const {
             return reinterpret_cast<seed const&>(range<0,32>());
+        }
+
+        /// Initializes a key exchange, using an existing signing key-pair.
+        /// Internally this converts the EdDSA or Ed25519 signing key to its Curve25519 equivalent.
+        /// @warning "It is generally considered poor form to reuse the same key for different
+        ///     purposes. While this conversion is technically safe, avoid these functions
+        ///     nonetheless unless you are particularly resource-constrained or have some other
+        ///     kind of hard requirement. It is otherwise an unnecessary risk factor."
+        template <class KXAlg>
+        key_exchange<KXAlg> key_exchange() const {
+            return get_seed().template key_exchange<KXAlg>();
         }
 
     private:
@@ -181,10 +218,30 @@ namespace monocypher {
         static constexpr auto sign_fn          = c::crypto_eddsa_sign;
         static constexpr auto public_to_kx_fn  = c::crypto_eddsa_to_x25519;
 
+        static void private_to_kx_fn(uint8_t x25519[32], const uint8_t eddsa[32]) {
+            // Adapted from Monocypher 3's crypto_from_eddsa_private()
+            secret_byte_array<64> a;
+            c::crypto_blake2b(a.data(), 64, eddsa, 32);
+            ::memcpy(x25519, a.data(), 32);
+        }
+
         // Convenient type aliases for those who don't like angle brackets
         using signature   = monocypher::signature<EdDSA>;
         using public_key  = monocypher::public_key<EdDSA>;
         using key_pair    = monocypher::key_pair<EdDSA>;
     };
+
+
+    template <class KxAlg>
+    template <class SigAlg>
+    key_exchange<KxAlg>::public_key::public_key(const monocypher::public_key<SigAlg> &pk) {
+        *this = pk.template for_key_exchange<KxAlg>();
+    }
+
+    template <class KxAlg>
+    template <class SigAlg>
+    key_exchange<KxAlg>::key_exchange(const key_pair<SigAlg>& keypair) {
+        *this = keypair.key_exchange<KxAlg>();
+    }
 
 }
