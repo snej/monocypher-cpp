@@ -39,6 +39,7 @@ namespace monocypher {
 
     struct XChaCha20_Poly1305;
 
+    // Namespace for symmetric session-key-based encryption.
     namespace session {
 
         /// A one-time-use value to be sent along with an encrypted message.
@@ -71,12 +72,36 @@ namespace monocypher {
         struct mac : public byte_array<16> { };
 
 
-        static constexpr size_t boxedSize(size_t plaintextSize) {
-            return plaintextSize + sizeof(mac);
-        }
+        namespace { // internal stuff
+            static constexpr size_t boxedSize(size_t plaintextSize) {
+                return plaintextSize + sizeof(mac);
+            }
 
-        static constexpr size_t unboxedSize(size_t ciphertextSize) {
-            return std::max(ciphertextSize, sizeof(mac)) - sizeof(mac);
+            static constexpr size_t unboxedSize(size_t ciphertextSize) {
+                return std::max(ciphertextSize, sizeof(mac)) - sizeof(mac);
+            }
+
+            // callback signature is `mac cb(uint8_t *out)`
+            template <typename Callback>
+            output_bytes _box(output_bytes output_buffer, size_t msg_size, Callback cb) {
+                output_buffer = output_buffer.shrunk_to(boxedSize(msg_size));
+                auto mac_p = (mac*)output_buffer.data;
+                *mac_p = cb(mac_p + 1);
+                return output_buffer;
+            }
+
+            // callback signature is `bool cb(mac const&, input_buffer, uint8_t* out)`
+            template <typename Callback>
+            [[nodiscard]]
+            output_bytes _unbox(output_bytes output_buffer, input_bytes boxed_cipher_text, Callback cb) {
+                if (boxed_cipher_text.size < sizeof(mac))
+                    return {};
+                output_buffer = output_buffer.shrunk_to(unboxedSize(boxed_cipher_text.size));
+                auto mac_p = (const mac*)boxed_cipher_text.data;
+                if (!cb(*mac_p, input_bytes{mac_p + 1, output_buffer.size}, output_buffer.data))
+                    return {};
+                return output_buffer;
+            }
         }
 
 
@@ -187,15 +212,13 @@ namespace monocypher {
             /// Encrypts `plain_text`, writing the MAC and ciphertext to `output_buffer`.
             /// Returns `output_buffer` resized to the actual output size, which is
             /// `sizeof(mac) + plain_text.size`.
-            /// \note  This function is compatible with libSodium's `crypto_box_easy`.
+            /// \note  The output data is compatible with that of libSodium's `crypto_box_easy`.
             output_bytes box(const nonce &nonce,
                              input_bytes plain_text,
                              output_bytes output_buffer) const
             {
-                output_buffer = output_buffer.shrunk_to(boxedSize(plain_text.size));
-                auto mac_p = (mac*)output_buffer.data;
-                *mac_p = lock(nonce, plain_text, mac_p + 1);
-                return output_buffer;
+                return _box(output_buffer, plain_text.size,
+                            [&](void *out) {return lock(nonce, plain_text, out);});
             }
 
             /// A version of `box` that returns the output as a `byte_array`.
@@ -219,15 +242,10 @@ namespace monocypher {
                                input_bytes boxed_cipher_text,
                                output_bytes output_buffer) const
             {
-                if (boxed_cipher_text.size < sizeof(mac))
-                    return {};
-                output_buffer = output_buffer.shrunk_to(unboxedSize(boxed_cipher_text.size));
-                auto mac_p = (const mac*)boxed_cipher_text.data;
-                if (!unlock(nonce, *mac_p, mac_p + 1,
-                            output_buffer.size,
-                            output_buffer.data))
-                    return {};
-                return output_buffer;
+                return _unbox(output_buffer, boxed_cipher_text,
+                              [&](mac const& m, input_bytes cipher, void* plain) {
+                    return unlock(nonce, m, cipher, plain);
+                });
             }
 
             /// A version of `unbox` that returns the output as a `byte_array`.
@@ -255,6 +273,134 @@ namespace monocypher {
 
         using key = encryption_key<XChaCha20_Poly1305>;
 
+
+        /// Lets you send a stream as a series of symmetrically-encrypted "chunks",
+        /// which can be decrypted by an `encrypted_reader` initialized with the same key & nonce.
+        ///
+        /// The encryption key is changed between each chunk, providing a symmetric ratchet
+        /// that prevents an attacker from reordering messages unnoticed.
+        ///
+        /// Truncation however is not detected. You must detect the last chunk manually.
+        /// Possible methods include:
+        /// - Putting an end-of-data marker in the plaintext of the final chunk
+        /// - Putting a length value in the first chunk
+        /// - Add 'additional data' to the final chunk; the reader won't be able to decrypt it
+        ///   without additional data, but will with it, signalling that this is the last.
+        template <typename Algorithm = XChaCha20_Poly1305>
+        struct encrypted_writer {
+            /// Constructs an encrypted_writer from a symmetric key and a nonce.
+            encrypted_writer(encryption_key<Algorithm> const& key, nonce const& n) {
+                Algorithm::init_stream(&_context, key.data(), n.data());
+            }
+
+            ~encrypted_writer() {c::crypto_wipe(&_context, sizeof(_context));}
+
+            /// Encrypts a chunk, producing ciphertext of the same size and a MAC.
+            /// (It's OK to to encrypt in place.)
+            mac write(input_bytes plain_text,
+                      void *out_ciphertext) {
+                return write(plain_text, {nullptr, 0}, out_ciphertext);
+            }
+
+            /// Encrypts a chunk, producing ciphertext of the same size and a MAC.
+            /// The `additional_data` is not sent, but it affects the MAC such that the reader
+            /// must present the same data when decrypting.
+            mac write(input_bytes plain_text,
+                      input_bytes additional_data,
+                      void *out_ciphertext) {
+                mac m;
+                Algorithm::write_stream(&_context, (uint8_t*)out_ciphertext, m.data(),
+                                        additional_data.data, additional_data.size,
+                                        plain_text.data, plain_text.size);
+                return m;
+            }
+
+            /// Encrypts `plain_text`, writing the MAC and ciphertext to `output_buffer`.
+            /// Returns `output_buffer` resized to the actual output size, which is
+            /// `sizeof(mac) + plain_text.size`.
+            output_bytes box(input_bytes plain_text,
+                             output_bytes output_buffer) {
+                return _box(output_buffer, plain_text.size,
+                            [&](void *out) {return write(plain_text, out);});
+            }
+
+            /// A version of `box` that takes `additional_data`.
+            output_bytes box(input_bytes plain_text,
+                             input_bytes additional_data,
+                             output_bytes output_buffer) {
+                return _box(output_buffer, plain_text.size,
+                            [&](void *out) {return write(plain_text, additional_data, out);});
+            }
+
+        private:
+            typename Algorithm::stream_context _context;
+        };
+
+
+        /// Decrypts a series of symmetrically-encrypted "chunks" generated by `encrypted_writer`.
+        /// The chunks must be decrypted in the same order in which they were written.
+        template <typename Algorithm = XChaCha20_Poly1305>
+        struct encrypted_reader {
+            /// Constructs an encrypted_reader from a symmetric key and a nonce, which must be
+            /// the same ones used by the sender.
+            encrypted_reader(encryption_key<Algorithm> const& key, nonce const& n) {
+                Algorithm::init_stream(&_context, key.data(), n.data());
+            }
+
+            ~encrypted_reader() {c::crypto_wipe(&_context, sizeof(_context));}
+
+            /// Decrypts a chunk given its ciphertext and MAC.
+            /// (It's OK to to decrypt in place.)
+            /// @return  True on success, false if authentication fails.
+            [[nodiscard]]
+            bool read(mac mac,
+                      input_bytes ciphertext,
+                      void *out_plaintext) {
+                return read(mac, ciphertext, {nullptr, 0}, out_plaintext);
+            }
+
+            /// Decrypts a chunk given its ciphertext, MAC,
+            /// and additional data that must match that given by the writer.
+            /// @return  True on success, false if authentication fails.
+            [[nodiscard]]
+            bool read(mac mac,
+                      input_bytes ciphertext,
+                      input_bytes additional_data,
+                      void *out_plaintext) {
+                return Algorithm::read_stream(&_context, (uint8_t*)out_plaintext, mac.data(),
+                                              additional_data.data, additional_data.size,
+                                              ciphertext.data, ciphertext.size) == 0;
+            }
+
+            /// Decrypts a MAC-and-ciphertext produced by `encrypted_writer::box`,
+            /// writing the plaintext to `output_buffer`.
+            /// Returns `output_buffer` resized to the actual plaintext size, which is
+            /// `boxed_ciphertext.size - sizeof(mac)`.
+            /// If the ciphertext is invalid, returns `{nullptr, 0}`.
+            [[nodiscard]]
+            output_bytes unbox(input_bytes boxed_ciphertext,
+                               output_bytes output_buffer) {
+                return _unbox(output_buffer, boxed_ciphertext,
+                              [&](mac const& m, input_bytes cipher, void* plain) {
+                    return read(m, cipher, plain);
+                });
+            }
+
+            /// A version of `unbox` that takes `additional_data`.
+            [[nodiscard]]
+            output_bytes unbox(input_bytes boxed_ciphertext,
+                               input_bytes additional_data,
+                               output_bytes output_buffer) {
+                return _unbox(output_buffer, boxed_ciphertext,
+                              [&](mac const& m, input_bytes cipher, void* plain) {
+                    return read(m, cipher, additional_data, plain);
+                });
+            }
+
+        private:
+            typename Algorithm::stream_context _context;
+        };
+
     } // end 'session'
 
 
@@ -267,6 +413,11 @@ namespace monocypher {
 
         static constexpr auto lock   = c::crypto_aead_lock;
         static constexpr auto unlock = c::crypto_aead_unlock;
+
+        static constexpr auto init_stream = c::crypto_aead_init_x;
+        static constexpr auto write_stream = c::crypto_aead_write;
+        static constexpr auto read_stream = c::crypto_aead_read;
+        using stream_context = c::crypto_aead_ctx;
     };
 
 }
