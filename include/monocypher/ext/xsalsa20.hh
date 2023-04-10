@@ -40,25 +40,29 @@ namespace monocypher::ext {
     /// XSalsa20 encryption (instead of XChaCha20) and Poly1305 authentication.
     /// This is compatible with libSodium and NaCl.
     ///
+    /// @warning  This implementation does not support "additional data". calling `encryption_key`'s
+    ///      `lock` and `unlock` methods with `additional_data` parameters will cause an assertion
+    ///      failure (in debug builds) or ignore the additional data (in release builds.)
+    ///
     /// @note This functionality is NOT part of Monocypher itself. It's provided for compatibility.
-    /// The implementation is from tweetnacl, by Daniel J. Bernstein et al.
-    /// <https://tweetnacl.cr.yp.to>
+    ///     The implementation is from tweetnacl, by Daniel J. Bernstein et al.
+    ///     <https://tweetnacl.cr.yp.to>
     struct XSalsa20_Poly1305 {
         static constexpr const char* name = "XSalsa20+Poly1305";
 
-        static void lock(uint8_t mac[16],
-                         uint8_t *cipher_text,
+        static void lock(uint8_t *cipher_text,
+                         uint8_t mac[16],
                          const uint8_t key[32],
                          const uint8_t nonce[24],
-                         const uint8_t *plain_text,
-                         size_t text_size);
+                         const uint8_t *ad, size_t ad_size,
+                         const uint8_t *plain_text, size_t text_size);
         
         static int unlock(uint8_t *plain_text,
+                          const uint8_t mac[16],
                           const uint8_t key[32],
                           const uint8_t nonce[24],
-                          const uint8_t mac[16],
-                          const uint8_t *cipher_text,
-                          size_t text_size);
+                          const uint8_t *ad, size_t ad_size,
+                          const uint8_t *cipher_text, size_t text_size);
     };
 
 }

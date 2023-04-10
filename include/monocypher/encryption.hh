@@ -106,16 +106,30 @@ namespace monocypher {
             mac lock(const nonce &nonce,
                      const void *plain_text, size_t text_size,
                      void *cipher_text) const {
-                return lock(nonce, {plain_text, text_size}, cipher_text);
+                return lock(nonce, {plain_text, text_size}, input_bytes{nullptr, 0}, cipher_text);
             }
 
             [[nodiscard]]
             mac lock(const nonce &nonce,
                      input_bytes plain_text,
                      void *cipher_text) const {
+                return lock(nonce, plain_text, input_bytes{nullptr, 0}, cipher_text);
+            }
+
+            /// Enhanced version of `lock` that includes additional data, also known as
+            /// "authenticated data", in calculating the MAC.
+            [[nodiscard]]
+            mac lock(const nonce &nonce,
+                     input_bytes plain_text,
+                     input_bytes additional_data,
+                     void *cipher_text) const {
                 fixOverlap(plain_text, cipher_text);
                 mac out_mac;
-                Algorithm::lock(out_mac.data(), u8(cipher_text), this->data(), nonce.data(),
+                Algorithm::lock(u8(cipher_text),
+                                out_mac.data(),
+                                this->data(),
+                                nonce.data(),
+                                additional_data.data, additional_data.size,
                                 plain_text.data, plain_text.size);
                 return out_mac;
             }
@@ -133,7 +147,8 @@ namespace monocypher {
             bool unlock(const nonce &nonce,
                         const mac &mac,
                         const void *cipher_text, size_t text_size,
-                        void *plain_text) const {
+                        void *plain_text) const
+            {
                 return unlock(nonce, mac, {cipher_text, text_size}, plain_text);
             }
 
@@ -141,11 +156,32 @@ namespace monocypher {
             bool unlock(const nonce &nonce,
                         mac in_mac,
                         input_bytes cipher_text,
-                        void *plain_text) const {
-                fixOverlap(cipher_text, plain_text);
-                return 0 == Algorithm::unlock(u8(plain_text), this->data(), nonce.data(),
-                                              in_mac.data(), cipher_text.data, cipher_text.size);
+                        void *plain_text) const
+            {
+                return unlock(nonce, in_mac, cipher_text, input_bytes{nullptr, 0}, plain_text);
             }
+
+            /// Enhanced version of `unlock` that takes additional data, also known as
+            /// "authenticated data", used when verifying the MAC. If this data doesn't match
+            /// that given when encrypting, the MAC will not match and decryption will fail.
+            [[nodiscard]]
+            bool unlock(const nonce &nonce,
+                        mac in_mac,
+                        input_bytes cipher_text,
+                        input_bytes additional_data,
+                        void *plain_text) const
+            {
+                fixOverlap(cipher_text, plain_text);
+                return 0 == Algorithm::unlock(u8(plain_text),
+                                              in_mac.data(),
+                                              this->data(),
+                                              nonce.data(),
+                                              additional_data.data, additional_data.size,
+                                              cipher_text.data, cipher_text.size);
+            }
+
+
+            //-------- Higher-level "box" convenience API
 
 
             /// Encrypts `plain_text`, writing the MAC and ciphertext to `output_buffer`.
@@ -228,8 +264,9 @@ namespace monocypher {
     ///        But see `XSalsa20_Poly1305`, in `Monocypher+xsalsa20.hh`.
     struct XChaCha20_Poly1305 {
         static constexpr const char* name = "XChaCha20+Poly1305";
-        static constexpr auto lock   = c::crypto_lock;
-        static constexpr auto unlock = c::crypto_unlock;
+
+        static constexpr auto lock   = c::crypto_aead_lock;
+        static constexpr auto unlock = c::crypto_aead_unlock;
     };
 
 }
