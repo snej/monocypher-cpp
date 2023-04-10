@@ -17,10 +17,13 @@ This API here is:
 
 **Namespaced:** All symbols are in the C++ namespace `monocypher`. Nothing is defined at global scope, not even the Monocypher C API. This prevents symbol collisions in binaries that also use libSodium or OpenSSL, all of which use the same C `crypto_` prefix as regular Monocypher.
 
-**Safe:** Strong typing makes the API safer. For example, you can't accidentally pass a Diffie-Hellman public key (`monocypher::key_exchange::public_key`) to a function expecting an Ed25519 public key (`monocypher::public_key`).
-Moreover, objects are zeroed out when destructed, to avoid leaving secrets in memory, and the `==` and `!=` operators use constant-time comparisons instead of regular memcmp, to avoid timing attacks.
+**Safe:** 
 
-**Immature:** There had to be a downside :) This API is fairly new, only partly tested, and has not yet been used in production code. However, it's just a very thin wrapper around Monocypher 3.1.2, which is well-tested and audited.
+* All keys, hashes, nonces and seeds are distinct types. For example, you can't accidentally pass a Diffie-Hellman public key (`monocypher::key_exchange::public_key`) to a function expecting an Ed25519 public key (`monocypher::public_key`).
+* Values are C++ `std::array` objects, which are value types, so you can't accidentally pass invalid pointers, pass a pointer to data of the wrong size, or return a dangling pointer to a local array.
+* Private keys and other sensitive data are automaticaly zeroed out when destructed, to avoid leaving secrets in memory.
+* The `==` and `!=` operators use constant-time comparisons instead of regular `memcmp`, to avoid timing attacks.
+* Concatenating data in memory (to encrypt or digest it) is easy and safe thanks to the `|` operator, unlike the typical series of fragile `memcpy` operations used in C, where it's too easy to get offsets or array sizes wrong.
 
 ## Features
 
@@ -47,6 +50,18 @@ You should be OK on recent versions of Linux, Windows, and Apple platforms, usin
 5. Read the [Monocypher documentation](https://monocypher.org/manual/) to learn how to use the API! The correspondence between the functions documented there, and the classes/methods here, should be clear. You can also consult `tests/MonocypherCppTests.cc` as a source of examples.
 
 > ⚠️ You do _not_ need to compile or include the Monocypher C files in `vendor/monocypher/`. The C++ source files compile and include them for you indirectly, wrapping their symbols in a C++ namespace.
+
+## Change Log
+
+### 10 April 2023 -- Monocypher 4.0.1
+
+Upgraded the Monocypher library from 3.1.3 to 4.0.1. There were a lot of API changes in the C API, but most of them don't affect the C++ API. I've even added (trivial) wrappers for some functionality that was removed.
+
+The change you _will_ notice is to the signature API. Monocypher used to keep the Ed25519 secret and public keys separate. But in 4.0 Loup decided to include the public key in the secret key, as libSodium does. This is because signing and verification use both keys, and there was a danger that application code might accidentally pass a mismatched pair, producing garbage results. The C API now only takes the secret key, which is actually both keys in one.
+
+I already had a `key_pair` struct that combined the two keys, so that stays the same. The breaking change is that **`signing_key` is now renamed `key_pair::seed`**, and you can't use it directly to sign and verify anymore; only the `key_pair` does that. Wherever you were signing and verifying with the `signing_key`, alone, you'll now need to construct a `key_pair` from it and then call the `key_pair`. Also consider changing your code to use `key_pair` instead of `seed`; it's only 32 bytes larger and you'll save time on every signature or verification.
+
+PS: When reading the Monocypher C API docs, keep in mind that what they call the "secret key" corresponds to the `key_pair` struct in the C++ API.
 
 ## To-Do
 
