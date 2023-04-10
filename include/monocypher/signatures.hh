@@ -160,8 +160,9 @@ namespace monocypher {
                 return sign(message.data, message.size);
             }
 
+            /// Creates a key_exchange context using the equivalent Curve25519 secret key.
             template <class KXAlg>
-            key_exchange<KXAlg> key_exchange() const {
+            key_exchange<KXAlg> as_key_exchange() const {
                 typename monocypher::key_exchange<KXAlg>::secret_key secretKey;
                 Algorithm::private_to_kx_fn(secretKey.data(), this->data());
                 return monocypher::key_exchange<KXAlg>(secretKey);
@@ -192,8 +193,8 @@ namespace monocypher {
         ///     nonetheless unless you are particularly resource-constrained or have some other
         ///     kind of hard requirement. It is otherwise an unnecessary risk factor."
         template <class KXAlg>
-        key_exchange<KXAlg> key_exchange() const {
-            return get_seed().template key_exchange<KXAlg>();
+        key_exchange<KXAlg> as_key_exchange() const {
+            return get_seed().template as_key_exchange<KXAlg>();
         }
 
     private:
@@ -241,7 +242,7 @@ namespace monocypher {
     template <class KxAlg>
     template <class SigAlg>
     key_exchange<KxAlg>::key_exchange(const key_pair<SigAlg>& keypair) {
-        *this = keypair.key_exchange<KxAlg>();
+        *this = keypair.template as_key_exchange<KxAlg>();
     }
 
 }

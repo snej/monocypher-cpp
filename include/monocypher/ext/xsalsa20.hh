@@ -41,7 +41,8 @@ namespace monocypher::ext {
     /// This is compatible with libSodium and NaCl.
     ///
     /// @warning  This implementation does not support "additional data". calling `encryption_key`'s
-    ///      `lock` and `unlock` methods with `additional_data` parameters will throw a exception.
+    ///      `lock` and `unlock` methods with `additional_data` parameters will cause an assertion
+    ///      failure (in debug builds) or ignore the additional data (in release builds.)
     ///
     /// @note This functionality is NOT part of Monocypher itself. It's provided for compatibility.
     ///     The implementation is from tweetnacl, by Daniel J. Bernstein et al.

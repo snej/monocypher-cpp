@@ -283,8 +283,8 @@ static void test_signatures_to_kx() {
     auto keyPair2 = key_pair<Algorithm>::generate();
 
     // Convert the signing key-pairs to key-exchange key-pairs:
-    key_exchange<X25519_Raw> kx1 = keyPair1.key_exchange<X25519_Raw>();
-    key_exchange<X25519_Raw> kx2 = keyPair2.key_exchange<X25519_Raw>();
+    key_exchange<X25519_Raw> kx1 = keyPair1.template as_key_exchange<X25519_Raw>();
+    key_exchange<X25519_Raw> kx2 = keyPair2.template as_key_exchange<X25519_Raw>();
 
     // Check that we can derive KX public keys from signing public keys:
     auto pk1 = kx1.get_public_key();

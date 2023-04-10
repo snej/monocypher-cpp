@@ -61,8 +61,7 @@ namespace monocypher::ext {
                                  const uint8_t *ad, size_t ad_size,
                                  const uint8_t *plaintext, size_t size)
     {
-        if (ad_size > 0)
-            throw std::runtime_error("XSalsa20_Poly1305 does not support additional authenticated data");
+        assert(ad_size == 0); // XSalsa20_Poly1305 does not support additional authenticated data
         //TODO: Find a way to do this without having to allocate temporary buffers.
         auto inBuffer = std::make_unique<uint8_t[]>(32 + size);
         memset(&inBuffer[ 0], 0, 32);
@@ -91,8 +90,7 @@ namespace monocypher::ext {
                                   const uint8_t *ad, size_t ad_size,
                                   const uint8_t *ciphertext, size_t size)
     {
-        if (ad_size > 0)
-            throw std::runtime_error("XSalsa20_Poly1305 does not support additional authenticated data");
+        assert(ad_size == 0); // XSalsa20_Poly1305 does not support additional authenticated data
         //TODO: Find a way to do this without having to allocate temporary buffers.
         auto inBuffer = std::make_unique<uint8_t[]>(32 + size);
         memset(&inBuffer[0], 0, 16);
