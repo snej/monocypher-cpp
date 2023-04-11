@@ -221,22 +221,88 @@ static void test_encryption() {
 
     monocypher::session::encryption_key<Algorithm> key;       // random key
     monocypher::session::nonce nonce;   // random nonce
-    char ciphertext[14];
-    CHECK(sizeof(ciphertext) == message.size());
-    monocypher::session::mac mac = key.lock(nonce, message.c_str(), message.size(), ciphertext);
-    cout << "locked: " << hexString<14>(ciphertext) << "\n";
-    cout << "nonce:  " << hexString(nonce) << "\n";
-    cout << "MAC:    " << hexString(mac) << "\n";
 
-    char plaintext[14];
-    CHECK(key.unlock(nonce, mac, ciphertext, sizeof(ciphertext), plaintext));
-    string plaintextStr(plaintext, sizeof(plaintext));
-    cout << "unlocked: '" << plaintextStr << "'\n";
-    CHECK(plaintextStr == message);
+    {
+        // lock/unlock:
+        char ciphertext[14];
+        CHECK(sizeof(ciphertext) == message.size());
+        monocypher::session::mac mac = key.lock(nonce, message.c_str(), message.size(), ciphertext);
+        cout << "locked: " << hexString<14>(ciphertext) << "\n";
+        cout << "nonce:  " << hexString(nonce) << "\n";
+        cout << "MAC:    " << hexString(mac) << "\n";
+
+        char plaintext[14];
+        CHECK(key.unlock(nonce, mac, ciphertext, sizeof(ciphertext), plaintext));
+        string plaintextStr(plaintext, sizeof(plaintext));
+        cout << "unlocked: '" << plaintextStr << "'\n";
+        CHECK(plaintextStr == message);
+    }
+    {
+        // box/unbox:
+        char boxbuf[100];
+        output_bytes outbuf{boxbuf, sizeof(boxbuf)};
+        output_bytes box = key.box(nonce,
+                                   input_bytes{message.c_str(), message.size()},
+                                   outbuf);
+        CHECK(box.data == outbuf.data);
+        CHECK(box.size == 14 + sizeof(monocypher::session::mac));
+        cout << "boxed:  " << hexString(box.data, box.size) << "\n";
+
+        char plaintext[100];
+        output_bytes unbox = key.unbox(nonce,
+                                       input_bytes{box.data, box.size},
+                                       output_bytes{plaintext, sizeof(plaintext)});
+        REQUIRE(unbox.size > 0);
+        CHECK(unbox.size == 14);
+        CHECK(unbox.data == plaintext);
+        string plaintextStr((char*)unbox.data, unbox.size);
+        cout << "unlocked: '" << plaintextStr << "'\n";
+        CHECK(plaintextStr == message);
+    }
 }
 
 TEST_CASE("XChaCha20-Poly1305 Encryption", "[Crypto")  {test_encryption<XChaCha20_Poly1305>();}
 TEST_CASE("XSalsa20-Poly1305 Encryption", "[Crypto")   {test_encryption<ext::XSalsa20_Poly1305>();}
+
+TEST_CASE("Streaming Encryption") {
+    monocypher::session::key key;       // random key
+    monocypher::session::nonce nonce;   // random nonce
+
+    string plain1 = "Let us go then, you and I,",
+           plain2 = "When the evening is spread out against the sky",
+           plain3 = "Like a patient etherized upon a table;";
+    char buffer[100];
+    output_bytes const outbuf{buffer, sizeof(buffer)};
+    string chunk1, chunk2, chunk3;
+    {
+        // write:
+        monocypher::session::encrypted_writer writer(key, nonce);
+        output_bytes out = writer.box(input_bytes(plain1), outbuf);
+        chunk1 = string((char*)out.data, out.size);
+        out = writer.box(input_bytes(plain2), outbuf);
+        chunk2 = string((char*)out.data, out.size);
+        out = writer.box(input_bytes(plain3), outbuf);
+        chunk3 = string((char*)out.data, out.size);
+    }
+    {
+        // read:
+        monocypher::session::encrypted_reader reader(key, nonce);
+        output_bytes out = reader.unbox(chunk1, outbuf);
+        string decrypt1((char*)out.data, out.size);
+        CHECK(decrypt1 == plain1);
+        out = reader.unbox(chunk2, outbuf);
+        string decrypt2((char*)out.data, out.size);
+        CHECK(decrypt2 == plain2);
+        out = reader.unbox(chunk3, outbuf);
+        string decrypt3((char*)out.data, out.size);
+        CHECK(decrypt3 == plain3);
+
+        // out of order:
+        out = reader.unbox(chunk2, outbuf);
+        CHECK(out.size == 0);
+        CHECK(out.data == nullptr);
+    }
+}
 
 
 TEST_CASE("Nonces", "[Crypto") {
