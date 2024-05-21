@@ -30,7 +30,7 @@
 
 #include "monocypher/ext/xsalsa20.hh"
 #include <memory>
-#include <string.h>
+#include <cstring>
 
 // Wrap 3rd party tweetnacl.c in a namespace to avoid messing with global namespace:
 namespace monocypher::tweetnacl {

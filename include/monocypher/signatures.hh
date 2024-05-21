@@ -56,7 +56,7 @@ namespace monocypher {
         public_key()                                           :byte_array<32>(0) { }
         explicit public_key(const std::array<uint8_t,32> &a)   :byte_array<32>(a) { }
         public_key(const void *data, size_t size)              :byte_array<32>(data, size) { }
-        explicit public_key(input_bytes k)                      :public_key(k.data, k.size) { }
+        explicit public_key(input_bytes k)                     :public_key(k.data, k.size) { }
 
         /// Verifies a signature.
         [[nodiscard]]

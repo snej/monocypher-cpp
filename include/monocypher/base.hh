@@ -46,8 +46,8 @@ namespace monocypher {
 
 //======== Utilities:
 
-    static inline const uint8_t* u8(const void *p)  {return reinterpret_cast<const uint8_t*>(p);}
-    static inline uint8_t* u8(void *p)              {return reinterpret_cast<uint8_t*>(p);}
+    static inline const uint8_t* u8(const void *p)  {return static_cast<const uint8_t*>(p);}
+    static inline uint8_t* u8(void *p)              {return static_cast<uint8_t*>(p);}
 
 
     /// Fills the array with cryptographically-secure random bytes.

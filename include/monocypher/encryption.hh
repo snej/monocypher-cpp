@@ -73,11 +73,11 @@ namespace monocypher {
 
 
         namespace { // internal stuff
-            static constexpr size_t boxedSize(size_t plaintextSize) {
+            constexpr size_t boxedSize(size_t plaintextSize) {
                 return plaintextSize + sizeof(mac);
             }
 
-            static constexpr size_t unboxedSize(size_t ciphertextSize) {
+            constexpr size_t unboxedSize(size_t ciphertextSize) {
                 return std::max(ciphertextSize, sizeof(mac)) - sizeof(mac);
             }
 
