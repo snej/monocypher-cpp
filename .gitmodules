@@ -1,3 +1,6 @@
 [submodule "vendor/monocypher"]
 	path = vendor/monocypher
 	url = https://github.com/snej/Monocypher.git
+[submodule "vendor/BLAKE3"]
+	path = vendor/BLAKE3
+	url = https://github.com/BLAKE3-team/BLAKE3.git

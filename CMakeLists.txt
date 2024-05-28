@@ -1,7 +1,16 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(MonocypherCpp)
+project(MonocypherCpp
+        VERSION     1.2
+        DESCRIPTION "C++ bindings for Monocypher crypto library, and more"
+        LANGUAGES   C CXX
+)
 
+option(MONOCYPHER_ENABLE_BLAKE3 "Adds the Blake3 digest algorithm" ON)
+
+if (MONOCYPHER_ENABLE_BLAKE3)
+    add_subdirectory(vendor/BLAKE3/c)
+endif()
 
 set(CMAKE_CXX_STANDARD          17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,6 +28,9 @@ include_directories(
 )
 
 
+#### MAIN LIBRARY
+
+
 add_library( MonocypherCpp STATIC
     src/Monocypher.cc
     src/Monocypher-ed25519.cc
@@ -32,12 +44,32 @@ if (NOT MSVC)
     )
 endif()
 
+if (MONOCYPHER_ENABLE_BLAKE3)
+    target_sources( MonocypherCpp PRIVATE
+        src/Monocypher+blake3.cc
+    )
+    target_include_directories( MonocypherCpp PRIVATE
+        vendor/BLAKE3/c/
+    )
+    target_link_libraries( MonocypherCpp INTERFACE
+        blake3
+    )
+endif()
+
+
 #### TESTS
+
 
 add_executable( MonocypherCppTests
     tests/MonocypherCppTests.cc
     tests/tests_main.cc
 )
+
+if (MONOCYPHER_ENABLE_BLAKE3)
+    target_sources( MonocypherCppTests PRIVATE
+        tests/Test_Blake3.cc
+    )
+endif()
 
 target_include_directories( MonocypherCppTests PRIVATE
     "vendor/catch2/"

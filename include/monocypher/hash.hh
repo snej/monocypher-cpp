@@ -38,8 +38,11 @@ namespace monocypher {
     using namespace MONOCYPHER_CPP_NAMESPACE;
 
     /// Cryptographic hash class, templated by algorithm and size.
-    /// The only `Algorithm` currently available is `Blake2b`.
-    /// The `Size` is in bytes and must be between 1 and 64. Sizes below 32 are not recommended.
+    /// The `Size` is in bytes and must be between 1 and 64.
+    ///
+    /// Monocypher provides algorithms `Blake2b` (below) and `SHA512` (in ext/sha512.hh).
+    /// Extra algorithms SHA256 (ext/sha256.hh) and Blake3 (ext/blake3.hh) are implemented by
+    /// other codebases, not Monocypher.
     template <class HashAlgorithm>
     class hash : public byte_array<HashAlgorithm::hash_size> {
     public:
@@ -49,18 +52,20 @@ namespace monocypher {
         explicit hash(const std::array<uint8_t,Size> &a) :byte_array<Size>(a) { }
         hash(const void *data, size_t size)              :byte_array<Size>(data, size) { }
 
-        /// Returns the Blake2b hash of a message.
+        /// Returns the hash of a message.
         static hash create(const void *message, size_t message_size) noexcept {
             hash result;
             HashAlgorithm::create_fn(result.data(), u8(message), message_size);
             return result;
         }
 
+        /// Returns the hash of a message.
         static hash create(input_bytes message) noexcept {
             return create(message.data, message.size);
         }
 
         /// Returns the hash of a message and a secret key, for use as a MAC.
+        /// @warning Some algorithms only work with specific key sizes.
         template <size_t KeySize>
         static hash createMAC(const void *message, size_t message_size,
                               const byte_array<KeySize> &key) noexcept {
@@ -87,11 +92,12 @@ namespace monocypher {
                 return *this;
             }
 
+            /// Hashes more data.
             _builder& update(input_bytes message) {
                 return update(message.data, message.size);
             }
 
-            /// Returns the final hash of all the data passed to `update`.
+            /// Returns the final hash of all the data.
             [[nodiscard]]
             hash final() {
                 hash result;
@@ -106,7 +112,7 @@ namespace monocypher {
         /// Incrementally constructs a hash.
         class builder : public _builder<HashAlgorithm> {
         public:
-            /// Constructs a Blake2b builder.
+            /// Constructs a hash builder.
             /// Call `update` one or more times to hash data, then `final` to get the hash.
             builder() {
                 HashAlgorithm::init_fn(&this->_ctx);
@@ -116,9 +122,10 @@ namespace monocypher {
         /// Incrementally constructs a MAC.
         class mac_builder : public _builder<typename HashAlgorithm::mac> {
         public:
-            /// Constructs a Blake2b builder with a secret key, for creating MACs.
+            /// Constructs a hash builder with a secret key, for creating MACs.
             /// Call `update` one or more times to hash data, then `final` to get the hash.
-            template <size_t KeySize>
+            /// @warning Some algorithms only work with specific key sizes.
+        template <size_t KeySize>
             mac_builder(const byte_array<KeySize> &key) {
                 HashAlgorithm::mac::init_fn(&this->_ctx, key.data(), key.size());
             }
@@ -165,8 +172,5 @@ namespace monocypher {
 
     /// Blake2b-32 hash class.
     using blake2b32 = hash<Blake2b<32>>;
-
-    // Note: See Monocypher-ed25519.hh for SHA-512, and Monocypher+sha256.hh for SHA-256.
-
 
 }
