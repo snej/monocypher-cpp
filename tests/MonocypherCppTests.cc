@@ -9,6 +9,7 @@
 #include "Monocypher.hh"
 #include "monocypher/ext/ed25519.hh"
 #include "monocypher/ext/sha256.hh"
+#include "monocypher/ext/sha512.hh"
 #include "monocypher/ext/xsalsa20.hh"
 #include <iostream>
 #include <tuple>    // for `tie`

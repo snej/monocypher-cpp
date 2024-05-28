@@ -1,5 +1,5 @@
 //
-//  monocypher/ext/ed25519.hh
+//  monocypher/ext/sha512.hh
 //
 //  Monocypher-Cpp: Unofficial idiomatic C++17 wrapper for Monocypher
 //  <https://monocypher.org>
@@ -33,7 +33,6 @@
 
 #pragma once
 #include "../hash.hh"
-#include "../signatures.hh"
 #include "../../../vendor/monocypher/src/optional/monocypher-ed25519.h"
 
 namespace monocypher {
@@ -41,27 +40,25 @@ namespace monocypher {
     // This functionality is an extension that comes with Monocypher.
     // It's not considered part of the core API, but is provided for compatibility.
 
-    /// EdDSA with Curve25519 and SHA-512.
-    /// \note This algorithm is more widely used than `EdDSA`, but slower and brings in more code.
-    /// (Use as `<Algorithm>` parameter to `signature`, `public_key`, `key_pair`.)
-    struct Ed25519 {
-        static constexpr const char* name = "Ed25519";
-        static constexpr auto generate_fn      = c::crypto_ed25519_key_pair;
-        static constexpr auto check_fn         = c::crypto_ed25519_check;
-        static constexpr auto sign_fn          = c::crypto_ed25519_sign;
-        static constexpr auto public_to_kx_fn  = c::crypto_eddsa_to_x25519; // yup, it's the same
+    /// SHA-512 algorithm, for use as the template parameter to `hash`.
+    struct SHA512 {
+        static constexpr const char* name = "SHA-512";
+        static constexpr size_t hash_size = 512 / 8;
 
-        static void private_to_kx_fn(uint8_t x25519[32], const uint8_t eddsa[32]) {
-            // Adapted from Monocypher 3's crypto_from_ed25519_private()
-            secret_byte_array<64> a;
-            c::crypto_sha512(a.data(), eddsa, 32);
-            ::memcpy(x25519, a.data(), 32);
-        }
+        using context = c::crypto_sha512_ctx;
+        static constexpr auto create_fn = c::crypto_sha512;
+        static constexpr auto init_fn   = c::crypto_sha512_init;
+        static constexpr auto update_fn = c::crypto_sha512_update;
+        static constexpr auto final_fn  = c::crypto_sha512_final;
 
-        // Convenient type aliases for those who don't like angle brackets
-        using signature   = monocypher::signature<Ed25519>;
-        using public_key  = monocypher::public_key<Ed25519>;
-        using key_pair    = monocypher::key_pair<Ed25519>;
+        struct mac {
+            using context = c::crypto_sha512_hmac_ctx;
+            static constexpr auto create_fn = c::crypto_sha512_hmac;
+            static constexpr auto init_fn   = c::crypto_sha512_hmac_init;
+            static constexpr auto update_fn = c::crypto_sha512_hmac_update;
+            static constexpr auto final_fn  = c::crypto_sha512_hmac_final;
+        };
     };
 
+    using sha512 = hash<SHA512>;
 }
