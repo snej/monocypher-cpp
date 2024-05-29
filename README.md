@@ -29,29 +29,39 @@ This API here is:
 
 | Functionality               | Algorithm(s)                             |
 | --------------------------- | ---------------------------------------- |
-| Cryptographic digests       | Blake2b, SHA-512, *SHA-256\**            |
+| Cryptographic digests       | Blake2b, SHA-512, *Blake3\**, *SHA-256\**|
 | Password-to-key derivation  | Argon2i                                  |
 | Diffie-Hellman key exchange | Curve25519 (raw or with HChaCha20)       |
 | Authenticated encryption    | XChaCha20 *or XSalsa20\**, with Poly1305 |
 | Digital signatures          | Ed25519 (with Blake2b or SHA-512)        |
 
-\* denotes optional algorithms not implemented in Monocypher itself. XSalsa20 is from [tweetnacl](https://tweetnacl.cr.yp.to) and SHA-256 is from Brad Conte’s [crypto-algorithms](https://github.com/B-Con/crypto-algorithms) (both public-domain.)
+\* denotes optional algorithms not implemented in Monocypher itself. XSalsa20 is from [tweetnacl](https://tweetnacl.cr.yp.to), SHA-256 is from Brad Conte’s [crypto-algorithms](https://github.com/B-Con/crypto-algorithms) (both public-domain), and Blake3 is from the [reference C implementation](https://github.com/BLAKE3-team/BLAKE3/blob/master/c) (Apache2 or CC).
 
 ## Using it
 
 You should be OK on recent versions of Linux, Windows, and Apple platforms, using up-to-date versions of Clang, GCC or MSVC, and CMake 3.16 or later. That's what the CI tests cover. 
 
-0. If you haven't already, get the Monocypher submodule by running `git submodule update --init`.
-1. Run the script `build_and_test.sh`. This uses CMake to build the library and some unit tests, and runs the tests.
-2. Add the `include` directory to your compiler's include path.
-3. Add `src/Monocypher.cc` to your project's source file list.
-4. `#include "Monocypher.hh"` in source files where you want to use Monocypher.
-5. If you need to use Ed25519 signatures or SHA-512 digests, also compile `src/Monocypher-ed25519.cc` and `#include "Monocypher-ed25519.hh"`. Ditto for SHA-256 and XSalsa20, which have their own headers and source files.
-5. Read the [Monocypher documentation](https://monocypher.org/manual/) to learn how to use the API! The correspondence between the functions documented there, and the classes/methods here, should be clear. You can also consult `tests/MonocypherCppTests.cc` as a source of examples.
+1. If you haven't already, get the Monocypher submodule by running `git submodule update --init`.
+2. Run the script `build_and_test.sh`. This uses CMake to build the library and some unit tests, and runs the tests.
+
+If your project uses CMake to build, all you hve to do is update your `CMakeLists.txt`, adding the line `add_subdirectory(monocypher-cpp)` and adding `MonocypherCpp` to your target's `target_link_libraries`.
+
+If you don't use CMake:
+1. Add the `include` directory to your compiler's include path.
+2. Add `src/Monocypher.cc` to your project's source file list.
+3. `#include "Monocypher.hh"` in source files where you want to use Monocypher.
+4. If you need to use Ed25519 signatures or SHA-512 digests, also compile `src/Monocypher-ed25519.cc` and `#include "Monocypher-ed25519.hh"`. Ditto for SHA-256, XSalsa20, which have their own headers and source files.
+5. Blake3 is somewhat harder to build because you also need to build the code in `vendor/BLAKE3/c`, which has some specializations for different CPU types.
+
+After building, read the [Monocypher documentation](https://monocypher.org/manual/) to learn how to use the API! The correspondence between the functions documented there, and the classes/methods here, should be clear. You can also consult `tests/MonocypherCppTests.cc` as a source of examples.
 
 > ⚠️ You do _not_ need to compile or include the Monocypher C files in `vendor/monocypher/`. The C++ source files compile and include them for you indirectly, wrapping their symbols in a C++ namespace.
 
 ## Change Log
+
+### 28 May 2024 -- Added Blake3
+
+### 24 Oct 2023 -- Monocypher 4.0.2
 
 ### 10 April 2023 -- Monocypher 4.0.1
 
